@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "common.proto";
+
+package tbus;
+
+message LEDPowerState {
+    bool   on         = 1;
+    uint32 brightness = 2;
+}
+
+service LED {
+    option (class_id) = 0x0010;
+    rpc SetPowerState(LEDPowerState) returns (google.protobuf.Empty) { option (index) = 1; }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "tbus",
+  "description": "Things Bus is a Software Defined Bus for Things",
+  "version": "0.0.1",
+  "author": "EaseWay <easeway@gmail.com>",
+  "main": "./index",
+  "engines": {
+    "node": ">=4"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "google-protobuf": "3.0.0-alpha.6.2",
+    "js-class": "0.0.2",
+    "js-flow": "0.0.3"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.5.3"
+  }
+}

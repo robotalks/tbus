@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "common.proto";
+
+package tbus;
+
+message ServoPosition {
+    uint32 angle = 1;
+}
+
+service Servo {
+    option (class_id) = 0x0024;
+    rpc SetPosition(ServoPosition) returns (google.protobuf.Empty) { option (index) = 1; }
+}

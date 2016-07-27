@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "common.proto";
+
+package tbus;
+
+message MotorDriveState {
+    enum Direction {
+        Fwd = 0;
+        Rev = 1;
+    }
+    Direction direction = 1;
+    uint32    speed     = 2;
+}
+
+message MotorBreakState {
+    bool on = 1;
+}
+
+service Motor {
+    option (class_id) = 0x0020;
+    rpc Start(MotorDriveState) returns (google.protobuf.Empty) { option (index) = 1; }
+    rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty) { option (index) = 2; }
+    rpc Break(MotorBreakState) returns (google.protobuf.Empty) { option (index) = 3; }
+}
