@@ -39,19 +39,29 @@ var HostStream = Class(stream.Duplex, {
 });
 
 var Bus = Class({
-    constructor: function () {
+    constructor: function (options) {
+        this.options = options || {};
+
         this._addressIndex = 0;
         this._devices = [];
 
         this._hostStream = new HostStream(this);
 
-        this._busDev = new BusDevice(this);
+        this._busDev = new BusDevice(this, this.options);
         this._devices[0] = this._busDev;
         this._busDev.attach(this, 0);
+
+        if (this.options.slave) {
+            this._slaveDev = new BusDevice(this, this.options);
+        }
     },
 
     device: function () {
         return this._busDev;
+    },
+
+    slaveDevice: function () {
+        return this._slaveDev;
     },
 
     plug: function (device) {
@@ -61,12 +71,24 @@ var Bus = Class({
         return this;
     },
 
+    setSlave: function (slaveDev) {
+        this._slaveDev = slaveDev;
+        return this;
+    },
+
     hostStream: function () {
         return this._hostStream;
     },
 
     writeToHost: function (buf) {
-        this._hostStream.writeToHost(buf);
+        if (this._slaveDev) {
+            var hostBus = this._slaveDev.bus();
+            if (hostBus) {
+                hostBus.writeToHost(buf);
+            }
+        } else {
+            this._hostStream.writeToHost(buf);
+        }
     },
 
     writeToBus: function (buf, done) {
@@ -100,8 +122,12 @@ var Bus = Class({
             devices.push(info);
         }
         var busenum = new BusEnumeration();
-        busenum.setDeviceList(devices);
+        busenum.setDevicesList(devices);
         done(null, busenum);
+    }
+}, {
+    statics: {
+        Device: BusDevice
     }
 });
 

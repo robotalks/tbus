@@ -3,9 +3,12 @@ var Class = require('js-class'),
     protocol = require('./protocol.js');
 
 var BusDevice = Class(Device, {
-    constructor: function (controller) {
+    constructor: function (logic, options) {
+        this.options = options || {};
         Device.prototype.constructor.call(this,
-            0x0001, 0, new protocol.RouteDecoder(), controller);
+            0x0001, this.options.id || 0,
+            new protocol.RouteDecoder(this.options),
+            logic);
         var dev = this;
         this.defineMethod(1, 'Enumerate', function (params, done) {
                 dev['m:enumerate'](params, done);
@@ -13,7 +16,7 @@ var BusDevice = Class(Device, {
     },
 
     'm:enumerate': function (params, done) {
-        this.controller.enumerate(function (err, result) {
+        this.logic.enumerate(function (err, result) {
             if (err == null) {
                 result = result.serializeBinary();
             }

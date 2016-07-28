@@ -2,12 +2,12 @@ var Class = require('js-class'),
     protocol = require('./protocol.js');
 
 var Device = Class({
-    constructor: function (classId, deviceId, decoder, controller) {
+    constructor: function (classId, deviceId, decoder, logic) {
         this._classId  = classId;
         this._deviceId = deviceId;
         this._decoder  = decoder;
-        this.controller = controller;
         this._methods = [];
+        this.logic = logic;
     },
 
     attach: function (bus, addr) {
@@ -51,12 +51,14 @@ var Device = Class({
     },
 
     _onMessage: function (msg) {
-        var method = this._methods[msg.bodyFlags];
+        var methodIndex = msg.bodyFlags;
+        var methodParams = msg.body;
+        var method = this._methods[methodIndex];
         if (method == null) {
             // TODO generate error
             console.error(new Error('unknown method ' + msg.bodyFlags))
         } else {
-            method.func(params, function (err, reply) {
+            method.func(methodParams, function (err, reply) {
                 if (err != null) {
                     // TODO
                     console.error(err);
@@ -73,9 +75,9 @@ var Device = Class({
 
     _onRoute: function (info) {
         delete this._fwdStream;
-        var routeFn = this.controller.route;
+        var routeFn = this.logic.route;
         if (typeof(routeFn) == 'function') {
-            routeFn.call(this.controller, info, this._setFwdStream.bind(this));
+            routeFn.call(this.logic, info, this._setFwdStream.bind(this));
         } else {
             this._setFwdStream(new Error('routing not supported'));
         }
