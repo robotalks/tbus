@@ -3,6 +3,7 @@ var expect = require('chai').expect,
     debug = require('debug'),
     protocol = require('../lib/protocol.js'),
     Bus = require('../lib/bus.js'),
+    Master = require('../lib/master.js'),
     BusCtl = require('../lib/busctl.js');
 
 function bailout(err, done) {
@@ -29,7 +30,8 @@ describe('Bus', function () {
 
     it('enumeration', function (done) {
         var bus = new Bus();
-        var ctl = new BusCtl({ stream: bus.hostStream() });
+        var master = new Master({bus: bus});
+        var ctl = new BusCtl(master);
         ctl.enumerate(function (err, busenum) {
             expect(err).to.be.null;
             expect(busenum).not.to.be.null;
@@ -51,31 +53,25 @@ describe('Bus', function () {
         var bus2 = new Bus({ id: 3, slave: true });
         bus1.plug(bus2.slaveDevice());
 
-        var id = 0x100;
-        var ctl = new BusCtl({
-            stream: bus.hostStream(),
-            idgen: function () {
-                return id++;
-            }
-        });
+        var master = new Master({bus: bus});
 
         var addrs = [];
         flow.steps()
             .chain()
             .do(function (next) {
-                ctl.enumerate(next);
+                new BusCtl(master).enumerate(next);
             })
             .do(function (busenum, next) {
                 var devices = busenum.getDevicesList();
                 expect(devices).to.have.lengthOf(2);
                 addrs.push(devices[1].getAddress());
-                ctl.setAddress(addrs).enumerate(next);
+                new BusCtl(master, addrs).enumerate(next);
             })
             .do(function (busenum, next) {
                 var devices = busenum.getDevicesList();
                 expect(devices).to.have.lengthOf(2);
                 addrs.push(devices[1].getAddress());
-                ctl.setAddress(addrs).enumerate(next);
+                new BusCtl(master, addrs).enumerate(next);
             })
             .do(function (busenum, next) {
                 var devices = busenum.getDevicesList();

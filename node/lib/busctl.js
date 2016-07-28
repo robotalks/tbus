@@ -5,12 +5,12 @@ var Class = require('js-class'),
 
 
 var BusCtl = Class(Controller, {
-    constructor: function (options) {
-        Controller.prototype.constructor.call(this, options);
+    constructor: function (master, addrs) {
+        Controller.prototype.constructor.call(this, master, addrs);
     },
 
     enumerate: function (done) {
-        this.invoke(1, new Empty(), function (err, reply) {
+        this.invoke(1, new Empty().serializeBinary(), function (err, reply) {
             if (err == null) {
                 reply = BusEnumeration.deserializeBinary(new Uint8Array(reply));
             }
