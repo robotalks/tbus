@@ -1,0 +1,46 @@
+---
+format: hypermake.v0
+
+targets:
+  gotool:
+    description: toolchain to build Go source code
+    watches:
+      - hack/gotool
+    build: hack/gotool
+
+  vendor:
+    description: fetch dependencies
+    after:
+      - gotool
+    watches:
+      - codegen/vendor/manifest
+    cmds:
+      - 'cd codegen && gvt restore'
+
+  codegen:
+    description: build code generator
+    after:
+      - vendor
+    watches:
+      - codegen/**/**/*.go
+    cmds:
+      - mkdir -p bin
+      - go build -o bin/protoc-gen-tbus ./codegen/cmd/protoc-gen-tbus
+
+  generate:
+    description: generate source code
+    after:
+      - codegen
+    watches:
+      - proto
+    cmds:
+      - mkdir -p node/gen
+      - 'export PATH=`pwd`/bin:$PATH'
+      - cd proto
+      - 'protoc --js_out=import_style=commonjs,binary:../node/gen *.proto'
+      - 'protoc --tbus_out=js:../node/gen *.proto'
+
+settings:
+  docker:
+    image: 'tbus-gotool:latest'
+    src-volume: /go/src/github.com/evo-bots/tbus
