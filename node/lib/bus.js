@@ -1,10 +1,10 @@
 var stream = require('stream'),
     Class = require('js-class'),
     protocol = require('./protocol.js'),
-    BusDevice = require('./busdev.js'),
 
-    DeviceInfo = require('../gen/busenum_pb.js').DeviceInfo,
-    BusEnumeration = require('../gen/busenum_pb.js').BusEnumeration;
+    DeviceInfo = require('../gen/bus_pb.js').DeviceInfo,
+    BusEnumeration = require('../gen/bus_pb.js').BusEnumeration,
+    BusDev = require('../gen/bus_device.js').BusDev;
 
 var HostStream = Class(stream.Duplex, {
     constructor: function (bus) {
@@ -47,12 +47,12 @@ var Bus = Class({
 
         this._hostStream = new HostStream(this);
 
-        this._busDev = new BusDevice(this, this.options);
+        this._busDev = new BusDev(this, this.options);
         this._devices[0] = this._busDev;
         this._busDev.attach(this, 0);
 
         if (this.options.slave) {
-            this._slaveDev = new BusDevice(this, this.options);
+            this._slaveDev = new BusDev(this, this.options);
         }
     },
 
@@ -127,7 +127,7 @@ var Bus = Class({
     }
 }, {
     statics: {
-        Device: BusDevice
+        Device: BusDev
     }
 });
 

@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
-import "common.proto";
+import "options.proto";
 
 package tbus;
 
@@ -20,7 +20,7 @@ message ForwardMsg {
     bytes  message = 2;
 }
 
-service BusEnumerator {
+service Bus {
     option (class_id) = 0x0001;
     rpc Enumerate(google.protobuf.Empty) returns (BusEnumeration) { option (index) = 1; }
     rpc Forward(ForwardMsg) returns (google.protobuf.Empty) { option (index) = 2; }

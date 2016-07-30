@@ -1,9 +1,18 @@
 root = true
 
-[*.{go,sh,js,cpp,h,json,yaml,yml}]
+[*]
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 charset = utf-8
 indent_style = space
 indent_size = 4
+
+[{Makefile,*.mk}]
+indent_style = tab
+
+[.{yaml,yml}]
+indent_size = 2
+
+[{HyperMake,*.hmake}]
+indent_size = 2

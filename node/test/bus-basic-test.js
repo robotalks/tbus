@@ -4,7 +4,7 @@ var expect = require('chai').expect,
     protocol = require('../lib/protocol.js'),
     Bus = require('../lib/bus.js'),
     Master = require('../lib/master.js'),
-    BusCtl = require('../lib/busctl.js');
+    BusCtl = require('../gen/bus_device.js').BusCtl;
 
 function bailout(err, done) {
     return function (err) {
