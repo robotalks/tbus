@@ -55,12 +55,14 @@ func (p *protocParser) Parse(reader io.Reader) (*Definition, error) {
 	}
 
 	var req plugin.CodeGeneratorRequest
-	err = proto.Unmarshal(input, &req)
-	if err != nil {
+	if err = proto.Unmarshal(input, &req); err != nil {
 		return nil, err
 	}
 
-	def := &Definition{Parameter: req.GetParameter()}
+	def := &Definition{}
+	if err = def.ParseArgs(req.GetParameter()); err != nil {
+		return nil, err
+	}
 
 	protoFiles := make(map[string]bool)
 	for _, fn := range req.FileToGenerate {

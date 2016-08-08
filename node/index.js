@@ -6,7 +6,7 @@ require('./gen/servo_pb.js');
 module.exports = {
     Device:     require('./lib/device.js'),
     Controller: require('./lib/control.js'),
-    Bus: require('./lib/bus.js'),
+    Bus:    require('./lib/bus.js'),
     Master: require('./lib/master.js'),
 
     protocol: require('./lib/protocol.js'),

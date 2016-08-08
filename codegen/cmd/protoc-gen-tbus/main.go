@@ -12,7 +12,7 @@ func generate() error {
 	if err != nil {
 		return err
 	}
-	g, err := proto.NewGenerator(def.Parameter, def.Parameter)
+	g, err := proto.NewGenerator(def.Lang, def.Args)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 )
 
 type javascriptGenerator struct {
+	internal bool
 }
 
 func (g *javascriptGenerator) Generate(def *Definition, out Output) error {
@@ -18,7 +19,7 @@ func (g *javascriptGenerator) Generate(def *Definition, out Output) error {
 		if err != nil {
 			return err
 		}
-		err = jsGenerate(f, w)
+		err = jsGenerate(g, f, w)
 		w.Close()
 		if err != nil {
 			return err
@@ -56,7 +57,7 @@ const (
 
 	busClassID = 0x0001
 
-	source = `//
+	headerInternal = `//
 // GENERTED FROM {{.Source}}, DO NOT EDIT
 //
 
@@ -64,7 +65,19 @@ var Class      = require('js-class'),
     Device     = require('../lib/device.js'),
     Controller = require('../lib/control.js'),
     protocol   = require('../lib/protocol.js');
+`
 
+	header = `//
+// GENERTED FROM {{.Source}}, DO NOT EDIT
+//
+
+var Class      = require('js-class'),
+    Device     = require('tbus').Device,
+    Controller = require('tbus').Controller,
+    protocol   = require('tbus').protocol;
+`
+
+	source = `
 {{range .Requires -}}
 require('{{.}}');
 {{end}}
@@ -135,7 +148,10 @@ module.exports = {
 `
 )
 
-var sourceTemplate = template.Must(template.New("source").Parse(source))
+var (
+	sourceTemplate   = template.Must(template.New("source").Parse(header + source))
+	internalTemplate = template.Must(template.New("source").Parse(headerInternal + source))
+)
 
 type jsClass struct {
 	ClassName   string
@@ -158,7 +174,7 @@ type jsFile struct {
 	Classes  []jsClass
 }
 
-func jsGenerate(f *DefFile, w io.Writer) error {
+func jsGenerate(g *javascriptGenerator, f *DefFile, w io.Writer) error {
 	ctx := jsFile{Source: f.Name}
 	for _, fn := range f.Deps {
 		jsfn := jsFileName(fn, jsProtoFileSuffix)
@@ -217,12 +233,22 @@ func jsGenerate(f *DefFile, w io.Writer) error {
 		}
 		ctx.Classes = append(ctx.Classes, cls)
 	}
-	return sourceTemplate.Execute(w, &ctx)
+	tmpl := sourceTemplate
+	if g.internal {
+		tmpl = internalTemplate
+	}
+	return tmpl.Execute(w, &ctx)
 }
 
 // NewJavaScriptGenerator creates javascript code generator
-func NewJavaScriptGenerator(param string) (Generator, error) {
-	return &javascriptGenerator{}, nil
+func NewJavaScriptGenerator(args []string) (Generator, error) {
+	g := &javascriptGenerator{}
+	for _, arg := range args {
+		if arg == "internal" {
+			g.internal = true
+		}
+	}
+	return g, nil
 }
 
 func init() {

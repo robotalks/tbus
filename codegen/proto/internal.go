@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+// common errors
+var (
+	ErrArgsMissingLang = fmt.Errorf("missing language")
+)
+
 // Device represents the definition of a device
 type Device struct {
 	Name    string
@@ -50,8 +55,20 @@ type DefFile struct {
 
 // Definition contains all definition files to be processed
 type Definition struct {
-	Parameter string
-	Files     []*DefFile
+	Lang  string
+	Args  []string
+	Files []*DefFile
+}
+
+// ParseArgs parses arguments in a string, comma-separated
+func (d *Definition) ParseArgs(args string) error {
+	tokens := strings.Split(args, ",")
+	if len(tokens) == 0 {
+		return ErrArgsMissingLang
+	}
+	d.Lang = tokens[0]
+	d.Args = tokens[1:]
+	return nil
 }
 
 // Parser parses input and build definition
@@ -71,18 +88,18 @@ type Generator interface {
 }
 
 // GeneratorFactory creates generator
-type GeneratorFactory func(param string) (Generator, error)
+type GeneratorFactory func(args []string) (Generator, error)
 
 // Generators are all registered generators
 var Generators = make(map[string]GeneratorFactory)
 
 // NewGenerator creates generator by language
-func NewGenerator(lang, param string) (Generator, error) {
+func NewGenerator(lang string, args []string) (Generator, error) {
 	factory := Generators[lang]
 	if factory == nil {
 		return nil, fmt.Errorf("unknown language %s", lang)
 	}
-	return factory(param)
+	return factory(args)
 }
 
 // Writer is helper to write code

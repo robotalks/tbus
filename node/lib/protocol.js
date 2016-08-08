@@ -11,10 +11,11 @@ var FORMAT_MASK = 0xf0,
 
 var BF_ERROR = 0x80;    // body contains error
 
-var EVT_HEAD  = 'head',
-    EVT_MSG   = 'message',
-    EVT_ROUTE = 'route',
-    EVT_FWD   = 'forward';
+var EVT_PREFIX = 'prefix',
+    EVT_HEAD   = 'head',
+    EVT_MSG    = 'message',
+    EVT_ROUTE  = 'route',
+    EVT_FWD    = 'forward';
 
 var _logger = null;
 
@@ -89,6 +90,10 @@ var StreamDecoder = Class({
     },
 
     report: function (err, event, result) {
+        this.setResult(err, event, result);
+    },
+
+    setResult: function (err, event, result) {
         this._result = {
             event: event,
             buf: this._buf.length > 0 ? this._buf : null
@@ -123,10 +128,41 @@ var StreamDecoder = Class({
     }
 });
 
-var MsgDecoder = Class(StreamDecoder, {
+var DefaultDecoder = Class(StreamDecoder, {
     constructor: function (options) {
-        StreamDecoder.prototype.constructor.call(this, 'Flags', options);
-        this._headBytes = 0;
+        StreamDecoder.prototype.constructor.call(this, 'Prefix', options);
+        this._prefix = [];
+    },
+
+    _enterPrefix: function () {
+        this._prefix = [];
+    },
+
+    _parsePrefix: function () {
+        var b = this._buf.readUInt8(0);
+        if ((b & PFX_ROUTING_MASK) == PFX_ROUTING) {
+            this._addrNum = (b & PFX_ROUTING_ADDRNUM) + 1;
+            this.skipUInt8();
+            this._prefix.push(b);
+            this.transit('Addrs');
+        } else {
+            this.transit('Flags');
+        }
+    },
+
+    _enterAddrs: function () {
+        this._expLen = this._addrNum;
+    },
+
+    _parseAddrs: function () {
+        this._prefix.push(this.readUInt8());
+        if (this.allRecv()) {
+            this.report(null, EVT_ROUTE, {
+                prefix: new Buffer(this._prefix),
+                addrs: this._prefix.slice(1)
+            });
+            this.transit('Flags');
+        }
     },
 
     _enterFlags: function () {
@@ -215,9 +251,21 @@ var MsgDecoder = Class(StreamDecoder, {
     },
 });
 
+var MsgDecoder = Class(DefaultDecoder, {
+    constructor: function (options) {
+        DefaultDecoder.prototype.constructor.call(this, options);
+        this._initialState = 'Flags';
+        this._headBytes = 0;
+    }
+});
+
 var RouteDecoder = Class(StreamDecoder, {
     constructor: function (options) {
         StreamDecoder.prototype.constructor.call(this, 'Prefix', options);
+    },
+
+    _enterPrefix: function () {
+        this._prefix = [];
     },
 
     _parsePrefix: function () {
@@ -225,6 +273,7 @@ var RouteDecoder = Class(StreamDecoder, {
         if ((b & PFX_ROUTING_MASK) == PFX_ROUTING) {
             this._addrNum = (b & PFX_ROUTING_ADDRNUM) + 1;
             this.skipUInt8();
+            this._prefix.push(b);
             this.transit('Addrs');
         } else {
             this.transit('Msg');
@@ -233,11 +282,10 @@ var RouteDecoder = Class(StreamDecoder, {
 
     _enterAddrs: function () {
         this._expLen = this._addrNum;
-        this._addrs = [];
     },
 
     _parseAddrs: function () {
-        this._addrs.push(this.readUInt8());
+        this._prefix.push(this.readUInt8());
         if (this.allRecv()) {
             this.transit('MsgHead');
         }
@@ -260,7 +308,8 @@ var RouteDecoder = Class(StreamDecoder, {
             this._msgBytes = head.headBytes + head.bodyBytes;
             this._buf = Buffer.concat(this._msgBufs);
             var msg = {
-                addrs: this._addrs,
+                prefix: new Buffer(this._prefix),
+                addrs: this._prefix.slice(1),
                 msgHead: head,
                 partialBuf: this._buf,
                 partialBody: result.buf
@@ -450,13 +499,16 @@ function decodeError(msg) {
 }
 
 module.exports = {
-    EVT_HEAD:  EVT_HEAD,
-    EVT_MSG:   EVT_MSG,
-    EVT_ROUTE: EVT_ROUTE,
-    EVT_FWD:   EVT_FWD,
+    EVT_PREFIX: EVT_PREFIX,
+    EVT_HEAD:   EVT_HEAD,
+    EVT_MSG:    EVT_MSG,
+    EVT_ROUTE:  EVT_ROUTE,
+    EVT_FWD:    EVT_FWD,
 
-    MsgDecoder:   MsgDecoder,
-    RouteDecoder: RouteDecoder,
+    DefaultDecoder: DefaultDecoder,
+    MsgDecoder:     MsgDecoder,
+    RouteDecoder:   RouteDecoder,
+
     DecodeStream: DecodeStream,
     Encoder:      Encoder,
 

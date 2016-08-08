@@ -38,7 +38,7 @@ targets:
       - 'export PATH=`pwd`/bin:$PATH'
       - cd proto
       - 'protoc --js_out=import_style=commonjs,binary:../node/gen *.proto'
-      - 'protoc --tbus_out=js:../node/gen *.proto'
+      - 'protoc --tbus_out=js,internal:../node/gen *.proto'
 
 settings:
   docker:
