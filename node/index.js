@@ -1,3 +1,4 @@
+// for data types
 require('./gen/bus_pb.js');
 require('./gen/led_pb.js');
 require('./gen/motor_pb.js');
@@ -20,3 +21,8 @@ module.exports = {
     ServoDev: require('./gen/servo_device.js').ServoDev,
     ServoCtl: require('./gen/servo_device.js').ServoCtl,
 };
+
+// for ctl extensions
+require('./lib/ctls/led.js');
+require('./lib/ctls/motor.js');
+require('./lib/ctls/servo.js');

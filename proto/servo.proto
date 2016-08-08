@@ -12,4 +12,5 @@ message ServoPosition {
 service Servo {
     option (class_id) = 0x0024;
     rpc SetPosition(ServoPosition) returns (google.protobuf.Empty) { option (index) = 1; }
+    rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty) { option (index) = 2; }
 }
