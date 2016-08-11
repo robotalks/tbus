@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+// common consts
+const (
+	BusClassID = 0x0001
+)
+
 // common errors
 var (
 	ErrArgsMissingLang = fmt.Errorf("missing language")
@@ -49,8 +54,15 @@ type Method struct {
 // DefFile is a file containing definitions
 type DefFile struct {
 	Name    string
+	Package string
 	Deps    []string
+	Options FileOptions
 	Devices []*Device
+}
+
+// FileOptions contains known options from file
+type FileOptions struct {
+	GoPackage string
 }
 
 // Definition contains all definition files to be processed
@@ -100,6 +112,15 @@ func NewGenerator(lang string, args []string) (Generator, error) {
 		return nil, fmt.Errorf("unknown language %s", lang)
 	}
 	return factory(args)
+}
+
+// SuffixFileName replaces file name suffix
+func SuffixFileName(origin, suffix string) string {
+	pos := strings.LastIndexByte(origin, '.')
+	if pos > 0 {
+		return origin[0:pos] + suffix
+	}
+	return origin + suffix
 }
 
 // Writer is helper to write code

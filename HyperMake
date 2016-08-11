@@ -27,8 +27,21 @@ targets:
       - mkdir -p bin
       - go build -o bin/protoc-gen-tbus ./codegen/cmd/protoc-gen-tbus
 
-  generate:
-    description: generate source code
+  gen-go:
+    description: generate source code for Go
+    after:
+      - codegen
+    watches:
+      - proto
+      - hack/fixpb-goimports.sh
+    cmds:
+      - 'export PATH=`pwd`/bin:$PATH'
+      - 'protoc -Iproto --go_out=go proto/tbus/*.proto'
+      - hack/fixpb-goimports.sh
+      - 'protoc -Iproto --tbus_out=go,internal:go proto/tbus/*.proto'
+
+  gen-node:
+    description: generate source code for Node.js
     after:
       - codegen
     watches:
@@ -36,9 +49,13 @@ targets:
     cmds:
       - mkdir -p node/gen
       - 'export PATH=`pwd`/bin:$PATH'
-      - cd proto
-      - 'protoc --js_out=import_style=commonjs,binary:../node/gen *.proto'
-      - 'protoc --tbus_out=js,internal:../node/gen *.proto'
+      - 'protoc -Iproto --js_out=import_style=commonjs,binary:node/gen proto/tbus/*.proto proto/common/*.proto'
+      - 'protoc -Iproto --tbus_out=js,internal:node/gen proto/tbus/*.proto'
+
+  generate:
+    description: generate source code
+    after:
+      - 'gen-*'
 
 settings:
   docker:

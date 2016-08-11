@@ -1,8 +1,8 @@
 // for data types
-require('./gen/bus_pb.js');
-require('./gen/led_pb.js');
-require('./gen/motor_pb.js');
-require('./gen/servo_pb.js');
+require('./gen/tbus/bus_pb.js');
+require('./gen/tbus/led_pb.js');
+require('./gen/tbus/motor_pb.js');
+require('./gen/tbus/servo_pb.js');
 
 module.exports = {
     Device:     require('./lib/device.js'),
@@ -12,14 +12,14 @@ module.exports = {
 
     protocol: require('./lib/protocol.js'),
 
-    BusDev: require('./gen/bus_device.js').BusDev,
-    BusCtl: require('./gen/bus_device.js').BusCtl,
-    LEDDev: require('./gen/led_device.js').LEDDev,
-    LEDCtl: require('./gen/led_device.js').LEDCtl,
-    MotorDev: require('./gen/motor_device.js').MotorDev,
-    MotorCtl: require('./gen/motor_device.js').MotorCtl,
-    ServoDev: require('./gen/servo_device.js').ServoDev,
-    ServoCtl: require('./gen/servo_device.js').ServoCtl,
+    BusDev: require('./gen/tbus/bus_device.js').BusDev,
+    BusCtl: require('./gen/tbus/bus_device.js').BusCtl,
+    LEDDev: require('./gen/tbus/led_device.js').LEDDev,
+    LEDCtl: require('./gen/tbus/led_device.js').LEDCtl,
+    MotorDev: require('./gen/tbus/motor_device.js').MotorDev,
+    MotorCtl: require('./gen/tbus/motor_device.js').MotorCtl,
+    ServoDev: require('./gen/tbus/servo_device.js').ServoDev,
+    ServoCtl: require('./gen/tbus/servo_device.js').ServoCtl,
 };
 
 // for ctl extensions

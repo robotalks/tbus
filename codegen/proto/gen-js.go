@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"path/filepath"
 	"strings"
 
 	gen "github.com/golang/protobuf/protoc-gen-go/generator"
@@ -15,25 +16,17 @@ type javascriptGenerator struct {
 
 func (g *javascriptGenerator) Generate(def *Definition, out Output) error {
 	for _, f := range def.Files {
-		w, err := out.GenerateFile(jsFileName(f.Name, jsDeviceFileSuffix))
+		w, err := out.GenerateFile(SuffixFileName(f.Name, jsDeviceFileSuffix))
 		if err != nil {
 			return err
 		}
-		err = jsGenerate(g, f, w)
+		err = g.generate(f, w)
 		w.Close()
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func jsFileName(origin, suffix string) string {
-	pos := strings.LastIndexByte(origin, '.')
-	if pos > 0 {
-		return origin[0:pos] + suffix
-	}
-	return origin + suffix
 }
 
 func jsSymbolName(origin string) string {
@@ -55,19 +48,17 @@ const (
 	jsProtoFileSuffix  = "_pb.js"
 	jsDeviceFileSuffix = "_device.js"
 
-	busClassID = 0x0001
-
-	headerInternal = `//
+	jsHeaderInternal = `//
 // GENERTED FROM {{.Source}}, DO NOT EDIT
 //
 
 var Class      = require('js-class'),
-    Device     = require('../lib/device.js'),
-    Controller = require('../lib/control.js'),
-    protocol   = require('../lib/protocol.js');
+    Device     = require('../../lib/device.js'),
+    Controller = require('../../lib/control.js'),
+    protocol   = require('../../lib/protocol.js');
 `
 
-	header = `//
+	jsHeader = `//
 // GENERTED FROM {{.Source}}, DO NOT EDIT
 //
 
@@ -77,12 +68,11 @@ var Class      = require('js-class'),
     protocol   = require('tbus').protocol;
 `
 
-	source = `
+	jsSource = `
 {{range .Requires -}}
 require('{{.}}');
 {{end}}
-
-{{range .Classes -}}
+{{- range .Classes}}
 var {{.ClassName}}Dev = Class(Device, {
     constructor: function (logic, options) {
         this.options = options || {};
@@ -91,14 +81,15 @@ var {{.ClassName}}Dev = Class(Device, {
             new protocol.{{.DecoderName}}(this.options),
             logic);
         var dev = this;
-{{range .Methods}}
+{{- range .Methods}}
+
         this.defineMethod({{.Index}}, '{{.Name}}', function (params, done) {
                 dev['m:{{.Symbol}}'](params, done);
             });
-{{end}}
+{{- end}}
     },
+{{- range .Methods}}
 
-{{range .Methods}}
     'm:{{.Symbol}}': function (params, done) {
         {{- if .ParamType}}
         params = {{.ParamType}}.deserializeBinary(new Uint8Array(params))
@@ -110,7 +101,7 @@ var {{.ClassName}}Dev = Class(Device, {
             done(err, result);
         });
     },
-{{end}}
+{{- end}}
 }, {
     statics: {
         CLASS_ID: {{.ClassID}}
@@ -121,8 +112,8 @@ var {{.ClassName}}Ctl = Class(Controller, {
     constructor: function (master, addrs) {
         Controller.prototype.constructor.call(this, master, addrs);
     },
+{{- range .Methods}}
 
-{{range .Methods}}
     {{.Symbol}}: function ({{if .ParamType}}params, {{end}}done) {
         this.invoke(1, {{if .ParamType}}params{{else}}new proto.google.protobuf.Empty(){{end}}.serializeBinary(), function (err, reply) {
             {{- if .ReturnType}}
@@ -135,9 +126,10 @@ var {{.ClassName}}Ctl = Class(Controller, {
             {{- end}}
         });
     },
-{{end}}
+{{- end}}
 });
-{{end}}
+
+{{- end}}
 
 module.exports = {
 {{- range .Classes}}
@@ -149,8 +141,8 @@ module.exports = {
 )
 
 var (
-	sourceTemplate   = template.Must(template.New("source").Parse(header + source))
-	internalTemplate = template.Must(template.New("source").Parse(headerInternal + source))
+	jsSourceTemplate   = template.Must(template.New("source").Parse(jsHeader + jsSource))
+	jsInternalTemplate = template.Must(template.New("source").Parse(jsHeaderInternal + jsSource))
 )
 
 type jsClass struct {
@@ -174,17 +166,23 @@ type jsFile struct {
 	Classes  []jsClass
 }
 
-func jsGenerate(g *javascriptGenerator, f *DefFile, w io.Writer) error {
+func (g *javascriptGenerator) generate(f *DefFile, w io.Writer) error {
 	ctx := jsFile{Source: f.Name}
 	for _, fn := range f.Deps {
-		jsfn := jsFileName(fn, jsProtoFileSuffix)
+		jsfn := SuffixFileName(fn, jsProtoFileSuffix)
 		if strings.HasPrefix(fn, "google/") {
 			ctx.Requires = append(ctx.Requires, "google-protobuf/"+jsfn)
+		} else if g.internal {
+			if strings.HasPrefix(fn, "tbus/") {
+				ctx.Requires = append(ctx.Requires, "./"+jsfn[5:])
+			} else {
+				ctx.Requires = append(ctx.Requires, "../"+jsfn)
+			}
 		} else {
-			ctx.Requires = append(ctx.Requires, "./"+jsfn)
+			ctx.Requires = append(ctx.Requires, "tbus/gen/"+jsfn)
 		}
 	}
-	ctx.Requires = append(ctx.Requires, "./"+jsFileName(f.Name, jsProtoFileSuffix))
+	ctx.Requires = append(ctx.Requires, "./"+SuffixFileName(filepath.Base(f.Name), jsProtoFileSuffix))
 	/*
 		// for goog.require(...) style
 		// find all custom types as they are defined in separated files named
@@ -209,7 +207,7 @@ func jsGenerate(g *javascriptGenerator, f *DefFile, w io.Writer) error {
 			ClassName: dev.Name,
 			ClassID:   fmt.Sprintf("0x%04x", dev.ClassID),
 		}
-		if dev.ClassID == busClassID {
+		if dev.ClassID == BusClassID {
 			cls.DecoderName = "RouteDecoder"
 		} else {
 			cls.DecoderName = "MsgDecoder"
@@ -233,9 +231,9 @@ func jsGenerate(g *javascriptGenerator, f *DefFile, w io.Writer) error {
 		}
 		ctx.Classes = append(ctx.Classes, cls)
 	}
-	tmpl := sourceTemplate
+	tmpl := jsSourceTemplate
 	if g.internal {
-		tmpl = internalTemplate
+		tmpl = jsInternalTemplate
 	}
 	return tmpl.Execute(w, &ctx)
 }

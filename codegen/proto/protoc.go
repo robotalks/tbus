@@ -75,7 +75,14 @@ func (p *protocParser) Parse(reader io.Reader) (*Definition, error) {
 			continue
 		}
 
-		defFile := &DefFile{Name: d.GetName(), Deps: d.GetDependency()}
+		defFile := &DefFile{
+			Name:    d.GetName(),
+			Package: d.GetPackage(),
+			Deps:    d.GetDependency(),
+			Options: FileOptions{
+				GoPackage: d.GetOptions().GetGoPackage(),
+			},
+		}
 		for _, svc := range d.GetService() {
 			val, err := uint32Ext(proto.GetExtension(svc.GetOptions(), extClassID))
 			if err != nil {

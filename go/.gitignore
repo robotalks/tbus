@@ -1,0 +1,4 @@
+*.pb.go
+*.tbusdev.go
+vendor/*
+!vendor/manifest

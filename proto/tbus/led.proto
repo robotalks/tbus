@@ -1,13 +1,12 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
-import "options.proto";
+import "common/options.proto";
 
 package tbus;
 
 message LEDPowerState {
-    bool   on         = 1;
-    uint32 brightness = 2;
+    bool on = 1;
 }
 
 service LED {

@@ -1,0 +1,24 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/golang/protobuf",
+			"repository": "https://github.com/golang/protobuf",
+			"revision": "c3cefd437628a0b7d31b34fe44b3a7a540e98527",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/golang/protobuf/proto/testdata",
+			"repository": "https://github.com/golang/protobuf",
+			"revision": "c3cefd437628a0b7d31b34fe44b3a7a540e98527",
+			"branch": "master",
+			"path": "/proto/testdata"
+		},
+		{
+			"importpath": "github.com/willf/bitset",
+			"repository": "https://github.com/willf/bitset",
+			"revision": "1ea0245d2bc8ce44623f24a1ae162beb06ad8cd6",
+			"branch": "master"
+		}
+	]
+}

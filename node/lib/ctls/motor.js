@@ -1,6 +1,4 @@
-require('../../gen/motor_pb.js');
-
-var MotorCtl = require('../../gen/motor_device.js').MotorCtl;
+var MotorCtl = require('../../gen/tbus/motor_device.js').MotorCtl;
 
 MotorCtl.prototype.forward = function (speed, done) {
     if (typeof(speed) == 'function') {

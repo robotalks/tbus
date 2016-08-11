@@ -2,9 +2,9 @@ var stream = require('stream'),
     Class = require('js-class'),
     protocol = require('./protocol.js'),
 
-    DeviceInfo = require('../gen/bus_pb.js').DeviceInfo,
-    BusEnumeration = require('../gen/bus_pb.js').BusEnumeration,
-    BusDev = require('../gen/bus_device.js').BusDev;
+    DeviceInfo = require('../gen/tbus/bus_pb.js').DeviceInfo,
+    BusEnumeration = require('../gen/tbus/bus_pb.js').BusEnumeration,
+    BusDev = require('../gen/tbus/bus_device.js').BusDev;
 
 var HostStream = Class(stream.Duplex, {
     constructor: function (bus) {

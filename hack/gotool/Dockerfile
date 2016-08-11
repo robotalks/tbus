@@ -4,6 +4,7 @@ RUN apt-get -y update && \
     apt-get -y clean && \
     curl -sSL https://github.com/google/protobuf/releases/download/v3.0.0/protoc-3.0.0-linux-x86_64.zip >/tmp/protoc.zip && \
     cd /usr/local && unzip /tmp/protoc.zip && rm /tmp/protoc.zip && chmod a+rx /usr/local/bin/protoc && \
+    go get -v github.com/golang/protobuf/protoc-gen-go && \
     go get -v github.com/alecthomas/gometalinter && \
     go get -v golang.org/x/tools/cmd/... && \
     go get -v github.com/FiloSottile/gvt && \
