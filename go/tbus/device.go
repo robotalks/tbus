@@ -10,7 +10,7 @@ import (
 type DeviceBase struct {
 	Info DeviceInfo
 
-	bus BusSlavePort
+	busPort BusPort
 }
 
 // Address returns current address
@@ -28,28 +28,15 @@ func (d *DeviceBase) DeviceID() uint32 {
 	return d.Info.DeviceId
 }
 
-// Attach implements Device
-func (d *DeviceBase) Attach(bus BusSlavePort, addr uint8) error {
-	if d.bus != nil {
-		panic("already attached to bus")
-	}
-	d.bus = bus
+// AttachTo implements Device
+func (d *DeviceBase) AttachTo(busPort BusPort, addr uint8) {
+	d.busPort = busPort
 	d.Info.Address = uint32(addr)
-	return nil
-}
-
-// Detach implements Device
-func (d *DeviceBase) Detach() error {
-	if d.bus != nil {
-		d.bus = nil
-		d.Info.Address = 0
-	}
-	return nil
 }
 
 // BusPort implements Device
-func (d *DeviceBase) BusPort() BusSlavePort {
-	return d.bus
+func (d *DeviceBase) BusPort() BusPort {
+	return d.busPort
 }
 
 // Reply write reply to bus
@@ -66,5 +53,15 @@ func (d *DeviceBase) Reply(msgID uint32, reply proto.Message) error {
 	if err != nil {
 		return err
 	}
-	return d.bus.SendMsg(msg)
+	return d.busPort.SendMsg(msg)
+}
+
+// LogicBase implements DeviceLogic
+type LogicBase struct {
+	Device Device
+}
+
+// SetDevice implements DeviceLogic
+func (l *LogicBase) SetDevice(dev Device) {
+	l.Device = dev
 }

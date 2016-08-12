@@ -9,23 +9,16 @@ import (
 	bitset "github.com/willf/bitset"
 )
 
-// LocalBus implements a bus manages local devices
+// LocalBus implements BusLogic and manages local devices
 type LocalBus struct {
-	device   *BusDev
-	slaveDev *BusDev
-	host     *localBusHost
-	slave    *localBusSlave
-	addrs    *bitset.BitSet
-	devices  map[uint8]Device
-	lock     sync.RWMutex
+	LogicBase
+	port    localBusPort
+	addrs   *bitset.BitSet
+	devices map[uint8]Device
+	lock    sync.RWMutex
 }
 
-type localBusHost struct {
-	bus   *LocalBus
-	msgCh chan prot.Msg
-}
-
-type localBusSlave struct {
+type localBusPort struct {
 	bus *LocalBus
 }
 
@@ -35,41 +28,9 @@ func NewLocalBus() *LocalBus {
 		addrs:   BitsBucket(),
 		devices: make(map[uint8]Device),
 	}
-	b.device = NewBusDev(b)
-	b.host = &localBusHost{bus: b, msgCh: make(chan prot.Msg, 1)}
-	b.slave = &localBusSlave{bus: b}
+	b.port.bus = b
 	b.addrs.SetTo(0, false)
-	b.devices[0] = b.device
-	b.device.Attach(b.slave, 0)
 	return b
-}
-
-// Device returns the bus device
-func (b *LocalBus) Device() *BusDev {
-	return b.device
-}
-
-// HostPort implements Bus
-func (b *LocalBus) HostPort() BusHostPort {
-	return b.host
-}
-
-// SlavePort implements Bus
-func (b *LocalBus) SlavePort() BusSlavePort {
-	return b.slave
-}
-
-// SlaveDevice turns the bus into device mode then it can be attached
-// to another bus
-func (b *LocalBus) SlaveDevice() *BusDev {
-	if b.slaveDev == nil {
-		b.lock.Lock()
-		if b.slaveDev == nil {
-			b.slaveDev = NewBusDev(b)
-		}
-		b.lock.Unlock()
-	}
-	return b.slaveDev
 }
 
 // Plug implements Bus
@@ -81,12 +42,7 @@ func (b *LocalBus) Plug(dev Device) error {
 		addr := uint8(index)
 		b.addrs.SetTo(index, false)
 		b.devices[addr] = dev
-		err := dev.Attach(b.slave, addr)
-		if err != nil {
-			delete(b.devices, addr)
-			b.addrs.SetTo(index, true)
-			return err
-		}
+		dev.AttachTo(&b.port, addr)
 	} else {
 		return ErrAddrNotAvail
 	}
@@ -99,10 +55,7 @@ func (b *LocalBus) Unplug(dev Device) error {
 	if addr != 0 {
 		b.lock.Lock()
 		defer b.lock.Unlock()
-		err := dev.Detach()
-		if err != nil {
-			return err
-		}
+		dev.AttachTo(nil, 0)
 		delete(b.devices, addr)
 		b.addrs.SetTo(uint(addr), true)
 	}
@@ -122,11 +75,11 @@ func (b *LocalBus) RouteMsg(msg *prot.Msg) error {
 	if len(msg.Head.Addrs) == 0 {
 		msg.Head.Prefix = 0
 		msg.Head.Raw = msg.Head.Raw[2:]
-		msg.Head.PrefixRaw = msg.Head.Raw[0:0]
+		msg.Head.RawPrefix = msg.Head.Raw[0:0]
 	} else {
 		msg.Head.Raw = msg.Head.Raw[1:]
 		msg.Head.Raw[0] = msg.Head.Prefix
-		msg.Head.PrefixRaw = msg.Head.Raw[0 : len(msg.Head.Addrs)+1]
+		msg.Head.RawPrefix = msg.Head.Raw[0 : len(msg.Head.Addrs)+1]
 	}
 	return device.SendMsg(msg)
 }
@@ -161,21 +114,12 @@ func (b *LocalBus) Forward(*ForwardMsg) error {
 }
 
 func (b *LocalBus) sendToHost(msg *prot.Msg) error {
-	if slaveDev := b.slaveDev; slaveDev != nil {
-		return slaveDev.BusPort().SendMsg(msg)
+	if b.Device == nil {
+		return ErrNoAssocDevice
 	}
-	b.host.msgCh <- *msg
-	return nil
+	return b.Device.BusPort().SendMsg(msg)
 }
 
-func (h *localBusHost) MsgChan() <-chan prot.Msg {
-	return h.msgCh
-}
-
-func (h *localBusHost) SendMsg(msg *prot.Msg) error {
-	return h.bus.device.SendMsg(msg)
-}
-
-func (s *localBusSlave) SendMsg(msg *prot.Msg) error {
+func (s *localBusPort) SendMsg(msg *prot.Msg) error {
 	return s.bus.sendToHost(msg)
 }

@@ -10,7 +10,7 @@ import (
 
 // LocalMaster implements master for local controllers
 type LocalMaster struct {
-	BusPort BusHostPort
+	Device Device
 
 	idPool      MinIDGen
 	invocations map[uint32]*localMasterInvocation
@@ -18,15 +18,17 @@ type LocalMaster struct {
 }
 
 // NewLocalMaster creates a LocalMaster
-func NewLocalMaster(bus BusHostPort) *LocalMaster {
-	return &LocalMaster{
-		BusPort:     bus,
+func NewLocalMaster(dev Device) *LocalMaster {
+	m := &LocalMaster{
+		Device:      dev,
 		invocations: make(map[uint32]*localMasterInvocation),
 	}
+	dev.AttachTo(m, 0)
+	return m
 }
 
 // Invoke implements Master
-func (m *LocalMaster) Invoke(addrs []uint8, method uint8, params proto.Message) (Invocation, error) {
+func (m *LocalMaster) Invoke(method uint8, params proto.Message, addrs []uint8) (Invocation, error) {
 	if params == nil {
 		params = &empty.Empty{}
 	}
@@ -38,16 +40,16 @@ func (m *LocalMaster) Invoke(addrs []uint8, method uint8, params proto.Message) 
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	msgID := m.allocID()
+	msgID := m.idPool.Alloc()
 	msg, err := prot.EncodeAsMsg(addrs, msgID, method, body)
 	if err != nil {
-		m.releaseID(msgID)
+		m.idPool.Release(msgID)
 		return nil, err
 	}
 
-	err = m.BusPort.SendMsg(msg)
+	err = m.Device.SendMsg(msg)
 	if err != nil {
-		m.releaseID(msgID)
+		m.idPool.Release(msgID)
 		return nil, err
 	}
 
@@ -64,36 +66,23 @@ func (m *LocalMaster) Invoke(addrs []uint8, method uint8, params proto.Message) 
 	return inv, nil
 }
 
-// Run implements Runner
-func (m *LocalMaster) Run(stopCh <-chan struct{}) error {
-	reader := &MsgReader{CancelChan: stopCh}
-	for {
-		msg, err := reader.ReadMsg(m.BusPort)
-		if err == ErrRecvAborted || (err == nil && msg == nil) {
-			return err
-		}
-		if err == nil {
-			m.lock.Lock()
-			inv := m.invocations[msg.Head.MsgID]
-			if inv != nil {
-				delete(m.invocations, msg.Head.MsgID)
-				m.releaseID(inv.msgID)
-			}
-			m.lock.Unlock()
-			if inv != nil {
-				inv.replyCh <- *msg
-			}
-		}
-		// else TODO log error
+// SendMsg implements BusPort
+func (m *LocalMaster) SendMsg(msg *prot.Msg) error {
+	go m.recvReply(*msg)
+	return nil
+}
+
+func (m *LocalMaster) recvReply(msg prot.Msg) {
+	m.lock.Lock()
+	inv := m.invocations[msg.Head.MsgID]
+	if inv != nil {
+		delete(m.invocations, msg.Head.MsgID)
+		m.idPool.Release(inv.msgID)
 	}
-}
-
-func (m *LocalMaster) allocID() uint32 {
-	return m.idPool.Alloc()
-}
-
-func (m *LocalMaster) releaseID(id uint32) {
-	m.idPool.Release(id)
+	m.lock.Unlock()
+	if inv != nil {
+		inv.replyCh <- msg
+	}
 }
 
 type localMasterInvocation struct {
@@ -115,6 +104,7 @@ func (c *localMasterInvocation) Ignore() {
 		c.master.lock.Lock()
 		if c.master.invocations != nil {
 			delete(c.master.invocations, c.msgID)
+			c.master.idPool.Release(c.msgID)
 		}
 		c.master.lock.Unlock()
 	}

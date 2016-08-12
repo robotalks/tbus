@@ -28,8 +28,8 @@ type MsgHead struct {
 	MsgID     uint32
 	BodyBytes uint16
 	Raw       []byte
-	PrefixRaw []byte
-	HeadRaw   []byte
+	RawPrefix []byte
+	RawHead   []byte
 }
 
 // NeedRoute indicates the message contains routing addresses
@@ -80,10 +80,10 @@ func DecodeHead(reader io.Reader) (head MsgHead, err error) {
 	head.Raw = buf.Bytes()
 	if addrNum > 0 {
 		head.Addrs = head.Raw[1 : addrNum+1]
-		head.PrefixRaw = head.Raw[0 : addrNum+1]
-		head.HeadRaw = head.Raw[addrNum+1:]
+		head.RawPrefix = head.Raw[0 : addrNum+1]
+		head.RawHead = head.Raw[addrNum+1:]
 	} else {
-		head.HeadRaw = head.Raw
+		head.RawHead = head.Raw
 	}
 	return
 }
@@ -198,10 +198,10 @@ func EncodeAsMsg(addrs []uint8, msgID uint32, bodyFlag uint8, body []byte) (msg 
 	if addrs != nil {
 		msg.Head.Prefix = msg.Head.Raw[0]
 		msg.Head.Addrs = msg.Head.Raw[1 : len(addrs)+1]
-		msg.Head.PrefixRaw = msg.Head.Raw[0 : len(addrs)+1]
-		msg.Head.HeadRaw = msg.Head.Raw[len(addrs)+1 : bodyOff]
+		msg.Head.RawPrefix = msg.Head.Raw[0 : len(addrs)+1]
+		msg.Head.RawHead = msg.Head.Raw[len(addrs)+1 : bodyOff]
 	} else {
-		msg.Head.HeadRaw = msg.Head.Raw[0:bodyOff]
+		msg.Head.RawHead = msg.Head.Raw[0:bodyOff]
 	}
 	msg.Body.Raw = msg.Head.Raw[bodyOff:]
 	msg.Body.Data = msg.Body.Raw[1:]

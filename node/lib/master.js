@@ -4,49 +4,18 @@ var Class = require('js-class'),
     Bus = require('./bus.js');
 
 var Master = Class({
-    constructor: function (options) {
+    constructor: function (device, options) {
         this.options = options || {};
-        this._decodeStream = new protocol.DecodeStream(new protocol.MsgDecoder(this.options));
-        this._decodeStream.on(protocol.EVT_MSG, this._onMessage.bind(this));
+        this._device = device;
+
         this._msgMap = {};
         this._msgIdBits = new IdBitmap();
 
-        if (this.options.stream) {
-            this.connect(this.options.stream);
-        } else if (this.options.bus) {
-            this.connect(this.options.bus);
-        }
+        device.attach(this, 0);
     },
 
-    connect: function (streamOrBus) {
-        this.disconnect();
-
-        if (streamOrBus instanceof Bus) {
-            this._stream = streamOrBus.hostStream();
-        } else {
-            this._stream = streamOrBus;
-        }
-        if (this._stream) {
-            this._decodeStream.decoder().reset();
-            this._stream.pipe(this._decodeStream);
-        }
-        return this;
-    },
-
-    disconnect: function () {
-        if (this._stream) {
-            this._stream.unpipe(this._decodeStream);
-        }
-        this._flushMsgMap();
-        delete this._stream;
-    },
-
-    connected: function () {
-        return this._stream != null;
-    },
-
-    stream: function () {
-        return this._stream;
+    device: function () {
+        return this._device;
     },
 
     invoke: function (index, params, addrs, callback) {
@@ -55,36 +24,32 @@ var Master = Class({
             addrs = null;
         }
 
-        if (this._stream) {
-            var msgId = this._mapMsgId(callback);
-            var encoder = new protocol.Encoder();
-            if (Array.isArray(addrs) && addrs.length > 0) {
-                encoder.route(addrs);
-            }
-            encoder
-                .messageId(msgId)
-                .encodeBody(index, params);
-            this._stream.write(encoder.toBuffer(), null, function (err) {
-                if (err != null) {
-                    this._unmapMsgId(msgId);
-                    callback(err);
-                }
-            }.bind(this));
-        } else {
-            callback(new Error('not connected'));
+        var msgId = this._mapMsgId(callback);
+        var encoder = new protocol.Encoder();
+        if (Array.isArray(addrs) && addrs.length > 0) {
+            encoder.route(addrs);
         }
+        encoder
+            .messageId(msgId)
+            .encodeBody(index, params);
+        this._device.sendMsg(encoder.buildMsg(), function (err) {
+            if (err != null) {
+                this._unmapMsgId(msgId);
+                callback(err);
+            }
+        }.bind(this));
         return this;
     },
 
-    _onMessage: function (msg) {
-        var callback = this._msgMap[msg.messageId]
+    sendMsg: function (msg, done) {
+        var callback = this._msgMap[msg.head.msgId]
         if (callback != null) {
-            this._unmapMsgId(msg.messageId);
+            this._unmapMsgId(msg.head.msgId);
             var err = protocol.decodeError(msg);
             if (err != null) {
                 callback(err);
             } else {
-                callback(null, msg.body, msg.bodyFlags);
+                callback(null, msg.body.data);
             }
         }
     },

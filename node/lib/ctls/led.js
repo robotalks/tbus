@@ -1,4 +1,4 @@
-var LEDCtl = require('../../gen/tbus/led_device.js').LEDCtl;
+var LEDCtl = require('../../gen/tbus/led_tbusdev.js').LEDCtl;
 
 LEDCtl.prototype.on = function (done) {
     return this.setPowerState({ on: true }, done);

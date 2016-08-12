@@ -1,4 +1,4 @@
-var MotorCtl = require('../../gen/tbus/motor_device.js').MotorCtl;
+var MotorCtl = require('../../gen/tbus/motor_tbusdev.js').MotorCtl;
 
 MotorCtl.prototype.forward = function (speed, done) {
     if (typeof(speed) == 'function') {

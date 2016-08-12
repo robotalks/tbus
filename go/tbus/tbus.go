@@ -22,12 +22,9 @@ var (
 	ErrRecvEnd = io.EOF
 	// ErrAddrNotAvail indicates no more address can be allocated
 	ErrAddrNotAvail = fmt.Errorf("address not available")
+	// ErrNoAssocDevice indicates a logic is not associated with device
+	ErrNoAssocDevice = fmt.Errorf("logic not associated with device")
 )
-
-// Runner defines a cancellable background runner
-type Runner interface {
-	Run(<-chan struct{}) error
-}
 
 // MsgReceiver provides a message chan for read
 type MsgReceiver interface {
@@ -50,16 +47,13 @@ type BusHostPort interface {
 	MsgSender
 }
 
-// BusSlavePort is the device side of the bus
-type BusSlavePort interface {
+// BusPort is the device side of the bus
+type BusPort interface {
 	MsgSender
 }
 
 // Bus defines a bus instance
 type Bus interface {
-	HostPort() BusHostPort
-	SlavePort() BusSlavePort
-	SlaveDevice() *BusDev
 	Plug(Device) error
 	Unplug(Device) error
 }
@@ -70,14 +64,18 @@ type Device interface {
 	Address() uint8
 	ClassID() uint32
 	DeviceID() uint32
-	Attach(BusSlavePort, uint8) error
-	Detach() error
-	BusPort() BusSlavePort
+	AttachTo(BusPort, uint8)
+	BusPort() BusPort
+}
+
+// DeviceLogic implements device functions
+type DeviceLogic interface {
+	SetDevice(Device)
 }
 
 // Master is the bus master
 type Master interface {
-	Invoke(addrs []uint8, method uint8, params proto.Message) (Invocation, error)
+	Invoke(method uint8, params proto.Message, addrs []uint8) (Invocation, error)
 }
 
 // Invocation represents the result of method invocation

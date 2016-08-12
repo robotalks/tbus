@@ -12,14 +12,14 @@ module.exports = {
 
     protocol: require('./lib/protocol.js'),
 
-    BusDev: require('./gen/tbus/bus_device.js').BusDev,
-    BusCtl: require('./gen/tbus/bus_device.js').BusCtl,
-    LEDDev: require('./gen/tbus/led_device.js').LEDDev,
-    LEDCtl: require('./gen/tbus/led_device.js').LEDCtl,
-    MotorDev: require('./gen/tbus/motor_device.js').MotorDev,
-    MotorCtl: require('./gen/tbus/motor_device.js').MotorCtl,
-    ServoDev: require('./gen/tbus/servo_device.js').ServoDev,
-    ServoCtl: require('./gen/tbus/servo_device.js').ServoCtl,
+    BusDev: require('./gen/tbus/bus_tbusdev.js').BusDev,
+    BusCtl: require('./gen/tbus/bus_tbusdev.js').BusCtl,
+    LEDDev: require('./gen/tbus/led_tbusdev.js').LEDDev,
+    LEDCtl: require('./gen/tbus/led_tbusdev.js').LEDCtl,
+    MotorDev: require('./gen/tbus/motor_tbusdev.js').MotorDev,
+    MotorCtl: require('./gen/tbus/motor_tbusdev.js').MotorCtl,
+    ServoDev: require('./gen/tbus/servo_tbusdev.js').ServoDev,
+    ServoCtl: require('./gen/tbus/servo_tbusdev.js').ServoCtl,
 };
 
 // for ctl extensions

@@ -11,11 +11,9 @@ var FORMAT_MASK = 0xf0,
 
 var BF_ERROR = 0x80;    // body contains error
 
-var EVT_PREFIX = 'prefix',
-    EVT_HEAD   = 'head',
-    EVT_MSG    = 'message',
-    EVT_ROUTE  = 'route',
-    EVT_FWD    = 'forward';
+var EVT_ROUTE = 'route',
+    EVT_HEAD  = 'head',
+    EVT_MSG   = 'message';
 
 var _logger = null;
 
@@ -128,7 +126,7 @@ var StreamDecoder = Class({
     }
 });
 
-var DefaultDecoder = Class(StreamDecoder, {
+var Decoder = Class(StreamDecoder, {
     constructor: function (options) {
         StreamDecoder.prototype.constructor.call(this, 'Prefix', options);
         this._prefix = [];
@@ -157,26 +155,29 @@ var DefaultDecoder = Class(StreamDecoder, {
     _parseAddrs: function () {
         this._prefix.push(this.readUInt8());
         if (this.allRecv()) {
-            this.report(null, EVT_ROUTE, {
-                prefix: new Buffer(this._prefix),
-                addrs: this._prefix.slice(1)
-            });
+            var msg = {head: {prefix: this._prefix[0]}};
+            msg.head.raw = new Buffer(this._prefix);
+            msg.head.addrs = this._prefix.slice(1);
+            msg.head.rawPrefix = msg.head.raw.slice(0);
+            this.report(null, EVT_ROUTE, msg);
             this.transit('Flags');
         }
     },
 
     _enterFlags: function () {
-        delete this._flags;
+        delete this._flag;
         delete this._msgId;
         delete this._bodyBytes;
         delete this._body;
         this._headBytes = 0;
+        this._head = this._prefix.slice(0);
     },
 
     _parseFlags: function () {
-        this._flags = this.readUInt8();
+        this._flag = this.readUInt8();
+        this._head.push(this._flag);
         this._headBytes ++;
-        if ((this._flags & FORMAT_MASK) != FORMAT) {
+        if ((this._flag & FORMAT_MASK) != FORMAT) {
             this.done(new Error('unsupported protocol'));
         } else {
             this.transit('MsgId');
@@ -189,6 +190,7 @@ var DefaultDecoder = Class(StreamDecoder, {
     },
 
     _parseMsgId: function () {
+        this._head.push(this._buf[0]);
         this._msgId |= this.decode7Bit();
         this._headBytes ++;
         if (this.allRecv()) {
@@ -203,6 +205,7 @@ var DefaultDecoder = Class(StreamDecoder, {
     },
 
     _parseBodySize: function () {
+        this._head.push(this._buf[0]);
         this._bodyBytes |= this.decode7Bit();
         this._headBytes ++;
         if (this.allRecv()) {
@@ -238,130 +241,35 @@ var DefaultDecoder = Class(StreamDecoder, {
 
     _report: function (event) {
         var msg = {
-            flags: this._flags,
-            messageId: this._msgId,
-            headBytes: this._headBytes,
-            bodyBytes: this._bodyBytes
+            head: {
+                flag: this._flag,
+                msgId: this._msgId,
+                bodyBytes: this._bodyBytes,
+                raw: new Buffer(this._head)
+            },
+            body: {}
         };
+        if (this._prefix.length > 0) {
+            msg.head.prefix = this._prefix[0];
+            msg.head.addrs = this._prefix.slice(1);
+            msg.head.rawPrefix = msg.head.raw.slice(0, this._prefix.length);
+            msg.head.rawHead = msg.head.raw.slice(this._prefix.length);
+        } else {
+            msg.head.rawHead = msg.head.raw.slice(0);
+        }
         if (this._body != null && this._body.length > 0) {
-            msg.bodyFlags = this._body.readUInt8(0);
-            msg.body = this._body.slice(1);
+            msg.body.raw = this._body;
+            msg.body.flag = this._body.readUInt8(0);
+            msg.body.data = this._body.slice(1);
         }
         this.report(null, event, msg);
-    },
-});
-
-var MsgDecoder = Class(DefaultDecoder, {
-    constructor: function (options) {
-        DefaultDecoder.prototype.constructor.call(this, options);
-        this._initialState = 'Flags';
-        this._headBytes = 0;
-    }
-});
-
-var RouteDecoder = Class(StreamDecoder, {
-    constructor: function (options) {
-        StreamDecoder.prototype.constructor.call(this, 'Prefix', options);
-    },
-
-    _enterPrefix: function () {
-        this._prefix = [];
-    },
-
-    _parsePrefix: function () {
-        var b = this._buf.readUInt8(0);
-        if ((b & PFX_ROUTING_MASK) == PFX_ROUTING) {
-            this._addrNum = (b & PFX_ROUTING_ADDRNUM) + 1;
-            this.skipUInt8();
-            this._prefix.push(b);
-            this.transit('Addrs');
-        } else {
-            this.transit('Msg');
-        }
-    },
-
-    _enterAddrs: function () {
-        this._expLen = this._addrNum;
-    },
-
-    _parseAddrs: function () {
-        this._prefix.push(this.readUInt8());
-        if (this.allRecv()) {
-            this.transit('MsgHead');
-        }
-    },
-
-    _enterMsgHead: function () {
-        this._msgDecoder = new MsgDecoder(this.options);
-        this._msgBufs = [];
-    },
-
-    _parseMsgHead: function () {
-        this._msgBufs.push(this._buf);
-        var result = this._msgDecoder.decode(this._buf);
-        if (result != null) {
-            if (result.err != null) {
-                this.done(result.err);
-                return;
-            }
-            var head = result.result;
-            this._msgBytes = head.headBytes + head.bodyBytes;
-            this._buf = Buffer.concat(this._msgBufs);
-            var msg = {
-                prefix: new Buffer(this._prefix),
-                addrs: this._prefix.slice(1),
-                msgHead: head,
-                partialBuf: this._buf,
-                partialBody: result.buf
-            };
-            this.report(null, EVT_ROUTE, msg);
-            this.transit('MsgFwd');
-        } else {
-            this._buf = this._msgDecoder._buf;
-        }
-    },
-
-    _enterMsgFwd: function () {
-        this._expLen = this._msgBytes;
-        this._recvLen = 0;
-    },
-
-    _parseMsgFwd: function () {
-        var size = this._buf.length;
-        if (this._recvLen + size > this._expLen) {
-            size = this._expLen - this._recvLen;
-        }
-        var fwdBuf = this._buf.slice(0, size);
-        this._buf = this._buf.slice(size);
-        this._recvLen += size;
-        this.report(null, EVT_FWD, { addrs: this._addrs, buf: fwdBuf });
-        if (this.allRecv()) {
-            this.reset();
-        }
-    },
-
-    _enterMsg: function () {
-        this._msgDecoder = new MsgDecoder(this.options);
-    },
-
-    _parseMsg: function () {
-        this._result = this._msgDecoder.decode(this._buf);
-        if (this._result != null) {
-            if (this._result.err != null ||
-                this._result.event == EVT_MSG ||
-                this._result.result.bodyBytes == 0) {
-                this.reset();
-            }
-        } else {
-            this._buf = this._msgDecoder._buf;
-        }
     },
 });
 
 var DecodeStream = Class(stream.Writable, {
     constructor: function (decoder) {
         stream.Writable.call(this);
-        this._decoder = decoder;
+        this._decoder = decoder || new Decoder();
     },
 
     decoder: function () {
@@ -413,7 +321,7 @@ function encode7Bit(bytes, value) {
 
 var Encoder = Class({
     constructor: function () {
-        this._flags = FORMAT;
+        this._flag = FORMAT;
     },
 
     messageId: function (msgId) {
@@ -426,12 +334,12 @@ var Encoder = Class({
         return this;
     },
 
-    encodeBody: function (flags, body) {
+    encodeBody: function (flag, body) {
         if (!Buffer.isBuffer(body)) {
             body = new Buffer(body.buffer);
         }
         var buf = new Buffer(1 + body.length);
-        buf.writeUInt8(flags, 0);
+        buf.writeUInt8(flag, 0);
         body.copy(buf, 1);
         return this.body(buf);
     },
@@ -445,75 +353,82 @@ var Encoder = Class({
         return this;
     },
 
-    toRoutePrefix: function () {
+    buildMsg: function () {
+        var msg = {
+            head: {
+                flag: this._flag,
+                msgId: this._msgId
+            },
+            body: {
+                raw: this._body
+            }
+        };
+        var headBytes = 0;
         if (this._addrs && this._addrs.length > 0) {
-            var buf = new Buffer(this._addrs.length + 1);
-            this._writeRoutePrefix(buf, 0);
-            return buf;
+            msg.head.addrs = this._addrs;
+            headBytes += this._addrs.length + 1;
+            var addrNum = (this._addrs.length - 1) & PFX_ROUTING_ADDRNUM;
+            msg.head.prefix = PFX_ROUTING | addrNum;
         }
-        return null;
+        var head = [this._flag];
+        msg.head.bodyBytes = this._body ? this._body.length : 0;
+        encode7Bit(head, this._msgId);
+        encode7Bit(head, msg.head.bodyBytes);
+        headBytes += head.length;
+
+        msg.head.raw = new Buffer(headBytes);
+        var off = 0;
+        if (msg.head.addrs) {
+            msg.head.raw.writeUInt8(msg.head.prefix, off++);
+            for (var i = 0; i < msg.head.addrs.length; i ++) {
+                msg.head.raw.writeUInt8(msg.head.addrs[i], off++);
+            }
+        }
+        for (var i = 0; i < head.length; i ++) {
+            msg.head.raw.writeUInt8(head[i], off++);
+        }
+        if (msg.head.addrs) {
+            msg.head.rawPrefix = msg.head.raw.slice(0, msg.head.addrs.length + 1);
+            msg.head.rawHead = msg.head.raw.slice(msg.head.addrs.length + 1);
+        } else {
+            msg.head.rawHead = msg.head.raw.slice(0);
+        }
+
+        if (msg.body.raw.length > 0) {
+            msg.body.flag = msg.body.raw.readUInt8(0);
+            msg.body.data = msg.body.raw.slice(1);
+        }
+
+        return msg;
     },
 
     toBuffer: function () {
-        var routePfx = this.toRoutePrefix();
-        var off = routePfx ? routePfx.length : 0;
-        var head = [this._flags];
-        var bodyBytes = this._body ? this._body.length : 0;
-        encode7Bit(head, this._msgId);
-        encode7Bit(head, bodyBytes);
-        var buf = new Buffer(off + head.length + bodyBytes);
-        if (routePfx) {
-            routePfx.copy(buf, 0);
-        }
-        head.forEach(function (v, index) { buf.writeUInt8(v, index + off); });
-        if (bodyBytes > 0) {
-            this._body.copy(buf, off + head.length);
-        }
-        return buf;
-    },
-
-    _writeRoutePrefix: function (buf, off) {
-        var addrNum = (this._addrs.length - 1) & PFX_ROUTING_ADDRNUM;
-        buf.writeUInt8(PFX_ROUTING | addrNum, off++);
-        for (var i = 0; i < addrNum + 1; i ++) {
-            buf.writeUInt8(this._addrs[i], off++);
-        }
-        return off;
+        var msg = this.buildMsg();
+        return Buffer.concat([msg.head.raw, msg.body.raw]);
     }
 });
 
-function encodeError(err) {
-    // TODO
-    return {
-        bodyFlags: BF_ERROR,
-        body: new Buffer(0),
-    };
-}
-
 function decodeError(msg) {
-    if (msg.bodyFlags & 0x80) {
+    if (msg.body.flag & 0x80) {
         // TODO
-
     }
     return null;
 }
 
+function needRoute(msg) {
+    return Array.isArray(msg.head.addrs) && msg.head.addrs.length > 0;
+}
+
 module.exports = {
-    EVT_PREFIX: EVT_PREFIX,
+    EVT_ROUTE:  EVT_ROUTE,
     EVT_HEAD:   EVT_HEAD,
     EVT_MSG:    EVT_MSG,
-    EVT_ROUTE:  EVT_ROUTE,
-    EVT_FWD:    EVT_FWD,
 
-    DefaultDecoder: DefaultDecoder,
-    MsgDecoder:     MsgDecoder,
-    RouteDecoder:   RouteDecoder,
-
+    Encoder: Encoder,
+    Decoder: Decoder,
     DecodeStream: DecodeStream,
-    Encoder:      Encoder,
 
-    encodeError: encodeError,
     decodeError: decodeError,
-
+    needRoute: needRoute,
     setLogger: setLogger
 };

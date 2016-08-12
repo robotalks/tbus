@@ -52,6 +52,7 @@ const {{.ClassName}}ClassID uint32 = {{.ClassID}}
 
 // {{.ClassName}}Logic defines the logic interface
 type {{.ClassName}}Logic interface {
+	{{$tbus}}DeviceLogic
 {{- if .Router}}
 	{{$tbus}}MsgRouter
 {{- end}}
@@ -102,6 +103,7 @@ func (d *{{.ClassName}}Dev) SendMsg(msg *prot.Msg) (err error) {
 func New{{.ClassName}}Dev(logic {{.ClassName}}Logic) *{{.ClassName}}Dev {
     d := &{{.ClassName}}Dev{Logic: logic}
     d.Info.ClassId = {{.ClassName}}ClassID
+	logic.SetDevice(d)
     return d
 }
 

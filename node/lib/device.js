@@ -2,32 +2,23 @@ var Class = require('js-class'),
     protocol = require('./protocol.js');
 
 var Device = Class({
-    constructor: function (classId, deviceId, decoder, logic) {
+    constructor: function (classId, logic, options) {
+        this.options = options || {}
         this._classId  = classId;
-        this._deviceId = deviceId;
-        this._decoder  = decoder;
+        this._deviceId = this.options.id || 0;
         this._methods = [];
         this.logic = logic;
+        logic.setDevice(this);
     },
 
-    attach: function (bus, addr) {
-        this._bus = bus;
+    attach: function (busPort, addr) {
+        this._busPort = busPort;
         this._address = addr;
-        this._decoder.reset();
-        this._recvStream = new protocol.DecodeStream(this._decoder);
-        this._recvStream
-            .on(protocol.EVT_MSG, this._onMessage.bind(this))
-            .on(protocol.EVT_ROUTE, this._onRoute.bind(this))
-            .on(protocol.EVT_FWD, this._onForward.bind(this));
+        return this;
     },
 
-    detach: function () {
-        if (this._recvStream) {
-            this._recvStream.close();
-            delete this._recvStream;
-        }
-        delete this._bus;
-        delete this._address;
+    address: function () {
+        return this._address;
     },
 
     classId: function () {
@@ -38,75 +29,52 @@ var Device = Class({
         return this._deviceId;
     },
 
-    receiver: function () {
-        return this._recvStream;
+    busPort: function () {
+        return this._busPort;
     },
 
-    address: function () {
-        return this._address;
+    setDeviceId: function (id) {
+        this._deviceId = id;
+        return this;
     },
 
-    bus: function () {
-        return this._bus;
-    },
-
-    _onMessage: function (msg) {
-        var methodIndex = msg.bodyFlags;
-        var methodParams = msg.body;
-        var method = this._methods[methodIndex];
-        if (method == null) {
-            // TODO generate error
-            console.error(new Error('unknown method ' + msg.bodyFlags))
+    sendMsg: function (msg, done) {
+        if (protocol.needRoute(msg)) {
+            this.routeMsg(msg, done);
         } else {
-            method.func(methodParams, function (err, reply) {
-                if (err != null) {
-                    // TODO
-                    console.error(err);
-                } else {
-                    this.bus().writeToHost(new protocol.Encoder()
-                        .messageId(msg.messageId)
-                        .encodeBody(0, reply)
-                        .toBuffer()
-                    );
-                }
-            }.bind(this));
-        }
-    },
-
-    _onRoute: function (info) {
-        delete this._fwdStream;
-        var routeFn = this.logic.route;
-        if (typeof(routeFn) == 'function') {
-            routeFn.call(this.logic, info, this._setFwdStream.bind(this));
-        } else {
-            this._setFwdStream(new Error('routing not supported'));
-        }
-    },
-
-    _setFwdStream: function (err, fwdStream, buf) {
-        if (err != null) {
-            // TODO
-            console.error(err);
-        } else {
-            this._fwdStream = fwdStream;
-            if (buf && buf.length > 0) {
-                this._forward(buf);
+            var methodIndex = msg.body.flag;
+            var methodParams = msg.body.body;
+            var method = this._methods[methodIndex];
+            if (method == null) {
+                done(new Error('unknown method ' + methodIndex));
+            } else {
+                var self = this;
+                setImmediate(function () {
+                    method.func(methodParams, function (err, reply) {
+                        if (err != null) {
+                            // TODO encode error
+                            console.error(err);
+                        } else {
+                            self.reply(new protocol.Encoder()
+                                .messageId(msg.head.msgId)
+                                .encodeBody(0, reply)
+                                .buildMsg()
+                            );
+                        }
+                    });
+                });
+                done();
             }
         }
+        return this;
     },
 
-    _onForward: function (info) {
-        this._forward(info.buf);
-    },
-
-    _forward: function (buf) {
-        if (this._fwdStream) {
-            this._fwdStream.write(buf, null, function (err) {
-                if (err != null) {
-                    // TODO
-                    console.error(err);
-                }
-            }.bind(this));
+    routeMsg: function (msg, done) {
+        var routeFn = this.logic.routeMsg;
+        if (typeof(routeFn) == 'function') {
+            routeFn.call(this.logic, msg, done);
+        } else {
+            done(new Error('routing not supported'));
         }
     },
 
@@ -118,6 +86,13 @@ var Device = Class({
         };
         return this;
     },
+
+    reply: function (msg) {
+        if (this._busPort) {
+            this._busPort.sendMsg(msg, function () { });
+        }
+        return this;
+    }
 });
 
 module.exports = Device;

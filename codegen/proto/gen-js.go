@@ -46,7 +46,7 @@ func jsTypeFileName(typeName string) string {
 
 const (
 	jsProtoFileSuffix  = "_pb.js"
-	jsDeviceFileSuffix = "_device.js"
+	jsDeviceFileSuffix = "_tbusdev.js"
 
 	jsHeaderInternal = `//
 // GENERTED FROM {{.Source}}, DO NOT EDIT
@@ -76,10 +76,7 @@ require('{{.}}');
 var {{.ClassName}}Dev = Class(Device, {
     constructor: function (logic, options) {
         this.options = options || {};
-        Device.prototype.constructor.call(this,
-            {{.ClassName}}Dev.CLASS_ID, this.options.id || 0,
-            new protocol.{{.DecoderName}}(this.options),
-            logic);
+        Device.prototype.constructor.call(this, {{.ClassName}}Dev.CLASS_ID, logic, this.options);
         var dev = this;
 {{- range .Methods}}
 
@@ -146,10 +143,9 @@ var (
 )
 
 type jsClass struct {
-	ClassName   string
-	ClassID     string
-	DecoderName string
-	Methods     []jsMethod
+	ClassName string
+	ClassID   string
+	Methods   []jsMethod
 }
 
 type jsMethod struct {
@@ -206,11 +202,6 @@ func (g *javascriptGenerator) generate(f *DefFile, w io.Writer) error {
 		cls := jsClass{
 			ClassName: dev.Name,
 			ClassID:   fmt.Sprintf("0x%04x", dev.ClassID),
-		}
-		if dev.ClassID == BusClassID {
-			cls.DecoderName = "RouteDecoder"
-		} else {
-			cls.DecoderName = "MsgDecoder"
 		}
 		for _, m := range dev.Methods {
 			mtd := jsMethod{

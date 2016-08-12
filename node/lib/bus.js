@@ -3,40 +3,7 @@ var stream = require('stream'),
     protocol = require('./protocol.js'),
 
     DeviceInfo = require('../gen/tbus/bus_pb.js').DeviceInfo,
-    BusEnumeration = require('../gen/tbus/bus_pb.js').BusEnumeration,
-    BusDev = require('../gen/tbus/bus_device.js').BusDev;
-
-var HostStream = Class(stream.Duplex, {
-    constructor: function (bus) {
-        stream.Duplex.call(this);
-        this._bus = bus;
-        this._msgs = [];
-    },
-
-    writeToHost: function (msg) {
-        this._msgs.push(msg);
-        this._push();
-    },
-
-    _read: function (n) {
-        this._reading = true;
-        this._push();
-    },
-
-    _push: function () {
-        if (this._reading) {
-            setImmediate(function () {
-                while (this._reading && this._msgs.length > 0) {
-                    this._reading = this.push(this._msgs.shift());
-                }
-            }.bind(this));
-        }
-    },
-
-    _write: function (chunk, encoding, callback) {
-        return this._bus._busDev.receiver().write(chunk, encoding, callback);
-    }
-});
+    BusEnumeration = require('../gen/tbus/bus_pb.js').BusEnumeration;
 
 var Bus = Class({
     constructor: function (options) {
@@ -44,71 +11,56 @@ var Bus = Class({
 
         this._addressIndex = 0;
         this._devices = [];
-
-        this._hostStream = new HostStream(this);
-
-        this._busDev = new BusDev(this, this.options);
-        this._devices[0] = this._busDev;
-        this._busDev.attach(this, 0);
-
-        if (this.options.slave) {
-            this._slaveDev = new BusDev(this, this.options);
-        }
     },
 
-    device: function () {
-        return this._busDev;
-    },
-
-    slaveDevice: function () {
-        return this._slaveDev;
+    setDevice: function (dev) {
+        this._device = dev;
+        return this;
     },
 
     plug: function (device) {
-        address = ++ this._addressIndex;
+        var address = ++ this._addressIndex;
         this._devices[address] = device;
         device.attach(this, address)
         return this;
     },
 
-    setSlave: function (slaveDev) {
-        this._slaveDev = slaveDev;
+    unplug: function (device) {
+        var address = device.address();
+        device.attach(null, 0);
+        delete this._devices[address];
         return this;
     },
 
-    hostStream: function () {
-        return this._hostStream;
-    },
-
-    writeToHost: function (buf) {
-        if (this._slaveDev) {
-            var hostBus = this._slaveDev.bus();
-            if (hostBus) {
-                hostBus.writeToHost(buf);
-            }
+    sendMsg: function (msg, done) {
+        if (this._device) {
+            this._device.busPort().sendMsg(msg, done);
         } else {
-            this._hostStream.writeToHost(buf);
+            done(new Error("no device associated"));
         }
+        return this;
     },
 
-    writeToBus: function (buf, done) {
-        this._hostStream.write(buf, null, done);
-    },
-
-    route: function (info, callback) {
-        var device = this._devices[info.addrs[0]];
+    routeMsg: function (msg, callback) {
+        var addr = msg.head.addrs[0];
+        var device = this._devices[addr];
         if (device == null) {
-            callback(new Error('invalid address ' + info.addrs[0]));
-            return;
+            callback(new Error('invalid address ' + addr));
+            return this;
         }
-        if (info.addrs.length > 1) {
-            callback(null, device.receiver(),
-                new protocol.Encoder()
-                    .route(info.addrs.slice(1))
-                    .toRoutePrefix());
+        msg.head.addrs = msg.head.addrs.slice(1);
+        if (msg.head.addrs.length == 0) {
+            delete msg.head.addrs
+            delete msg.head.prefix
+            delete msg.head.rawPrefix
+            msg.head.raw = msg.head.raw.slice(2);
         } else {
-            callback(null, device.receiver());
+            msg.head.raw = msg.head.raw.slice(1);
+            msg.head.raw.writeUInt8(msg.head.prefix, 0);
+            msg.head.rawPrefix = msg.head.raw.slice(0, msg.head.addrs.length + 1);
         }
+        device.sendMsg(msg, callback);
+        return this;
     },
 
     enumerate: function (done) {
@@ -124,10 +76,6 @@ var Bus = Class({
         var busenum = new BusEnumeration();
         busenum.setDevicesList(devices);
         done(null, busenum);
-    }
-}, {
-    statics: {
-        Device: BusDev
     }
 });
 
