@@ -9,7 +9,8 @@ import (
 // DeviceBase implements basic device operations
 type DeviceBase struct {
 	Info DeviceInfo
-	Bus  BusSlave
+
+	bus BusSlavePort
 }
 
 // Address returns current address
@@ -28,22 +29,27 @@ func (d *DeviceBase) DeviceID() uint32 {
 }
 
 // Attach implements Device
-func (d *DeviceBase) Attach(bus BusSlave, addr uint8) error {
-	if d.Bus != nil {
+func (d *DeviceBase) Attach(bus BusSlavePort, addr uint8) error {
+	if d.bus != nil {
 		panic("already attached to bus")
 	}
-	d.Bus = bus
+	d.bus = bus
 	d.Info.Address = uint32(addr)
 	return nil
 }
 
 // Detach implements Device
 func (d *DeviceBase) Detach() error {
-	if d.Bus != nil {
-		d.Bus = nil
+	if d.bus != nil {
+		d.bus = nil
 		d.Info.Address = 0
 	}
 	return nil
+}
+
+// BusPort implements Device
+func (d *DeviceBase) BusPort() BusSlavePort {
+	return d.bus
 }
 
 // Reply write reply to bus
@@ -60,5 +66,5 @@ func (d *DeviceBase) Reply(msgID uint32, reply proto.Message) error {
 	if err != nil {
 		return err
 	}
-	return d.Bus.SendMsg(msg)
+	return d.bus.SendMsg(msg)
 }

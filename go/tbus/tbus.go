@@ -44,21 +44,22 @@ type MsgRouter interface {
 	RouteMsg(*prot.Msg) error
 }
 
-// BusHost is the host side of the bus
-type BusHost interface {
+// BusHostPort is the host side of the bus
+type BusHostPort interface {
 	MsgReceiver
 	MsgSender
 }
 
-// BusSlave is the device side of the bus
-type BusSlave interface {
+// BusSlavePort is the device side of the bus
+type BusSlavePort interface {
 	MsgSender
 }
 
 // Bus defines a bus instance
 type Bus interface {
-	Host() BusHost
-	Slave() BusSlave
+	HostPort() BusHostPort
+	SlavePort() BusSlavePort
+	SlaveDevice() *BusDev
 	Plug(Device) error
 	Unplug(Device) error
 }
@@ -69,8 +70,9 @@ type Device interface {
 	Address() uint8
 	ClassID() uint32
 	DeviceID() uint32
-	Attach(BusSlave, uint8) error
+	Attach(BusSlavePort, uint8) error
 	Detach() error
+	BusPort() BusSlavePort
 }
 
 // Master is the bus master

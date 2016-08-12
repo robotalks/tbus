@@ -203,7 +203,7 @@ func EncodeAsMsg(addrs []uint8, msgID uint32, bodyFlag uint8, body []byte) (msg 
 	} else {
 		msg.Head.HeadRaw = msg.Head.Raw[0:bodyOff]
 	}
-	msg.Body.Raw = msg.Head.HeadRaw[bodyOff:]
+	msg.Body.Raw = msg.Head.Raw[bodyOff:]
 	msg.Body.Data = msg.Body.Raw[1:]
 	return
 }

@@ -10,7 +10,7 @@ import (
 
 // LocalMaster implements master for local controllers
 type LocalMaster struct {
-	Bus BusHost
+	BusPort BusHostPort
 
 	idPool      MinIDGen
 	invocations map[uint32]*localMasterInvocation
@@ -18,9 +18,9 @@ type LocalMaster struct {
 }
 
 // NewLocalMaster creates a LocalMaster
-func NewLocalMaster(bus BusHost) *LocalMaster {
+func NewLocalMaster(bus BusHostPort) *LocalMaster {
 	return &LocalMaster{
-		Bus:         bus,
+		BusPort:     bus,
 		invocations: make(map[uint32]*localMasterInvocation),
 	}
 }
@@ -45,7 +45,7 @@ func (m *LocalMaster) Invoke(addrs []uint8, method uint8, params proto.Message) 
 		return nil, err
 	}
 
-	err = m.Bus.SendMsg(msg)
+	err = m.BusPort.SendMsg(msg)
 	if err != nil {
 		m.releaseID(msgID)
 		return nil, err
@@ -68,7 +68,7 @@ func (m *LocalMaster) Invoke(addrs []uint8, method uint8, params proto.Message) 
 func (m *LocalMaster) Run(stopCh <-chan struct{}) error {
 	reader := &MsgReader{CancelChan: stopCh}
 	for {
-		msg, err := reader.ReadMsg(m.Bus)
+		msg, err := reader.ReadMsg(m.BusPort)
 		if err == ErrRecvAborted || (err == nil && msg == nil) {
 			return err
 		}
