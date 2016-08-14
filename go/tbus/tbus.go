@@ -41,12 +41,6 @@ type MsgRouter interface {
 	RouteMsg(*prot.Msg) error
 }
 
-// BusHostPort is the host side of the bus
-type BusHostPort interface {
-	MsgReceiver
-	MsgSender
-}
-
 // BusPort is the device side of the bus
 type BusPort interface {
 	MsgSender

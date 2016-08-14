@@ -7,6 +7,7 @@ import (
 
 // Controller is the base class of device controller
 type Controller struct {
+	LogicBase
 	MsgReader
 	Master  Master
 	Address []uint8

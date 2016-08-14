@@ -56,15 +56,18 @@ func DecodeHead(reader io.Reader) (head MsgHead, err error) {
 	if _, err = io.CopyN(&buf, reader, 1); err != nil {
 		return
 	}
-	pfx := uint8(buf.Bytes()[0])
+	pfx := buf.Bytes()[0]
 	var addrNum int
 	if (pfx & PfxRoutingMask) == PfxRouting {
 		head.Prefix = pfx
 		addrNum = int((pfx & PfxRoutingAddrNum) + 1)
-		if _, err = io.CopyN(&buf, reader, int64(addrNum)); err != nil {
+		if _, err = io.CopyN(&buf, reader, int64(addrNum)+1); err != nil {
 			return
 		}
-	} else if (pfx & FormatMask) == Format {
+		pfx = buf.Bytes()[addrNum+1]
+	}
+
+	if (pfx & FormatMask) == Format {
 		head.Flag = pfx
 		if head.MsgID, err = decode7bit32(&buf, reader); err != nil {
 			return
@@ -193,17 +196,18 @@ func EncodeAsMsg(addrs []uint8, msgID uint32, bodyFlag uint8, body []byte) (msg 
 	if _, err = EncodeMsg(&buf, msgID, bodyFlag, body); err != nil {
 		return
 	}
-	msg.Head.Raw = buf.Bytes()
-	bodyOff := len(msg.Head.Raw) - int(msg.Head.BodyBytes)
+	raw := buf.Bytes()
+	bodyOff := len(raw) - int(msg.Head.BodyBytes)
+	msg.Head.Raw = raw[0:bodyOff]
+	msg.Body.Raw = raw[bodyOff:]
 	if addrs != nil {
-		msg.Head.Prefix = msg.Head.Raw[0]
-		msg.Head.Addrs = msg.Head.Raw[1 : len(addrs)+1]
-		msg.Head.RawPrefix = msg.Head.Raw[0 : len(addrs)+1]
-		msg.Head.RawHead = msg.Head.Raw[len(addrs)+1 : bodyOff]
+		msg.Head.Prefix = raw[0]
+		msg.Head.Addrs = raw[1 : len(addrs)+1]
+		msg.Head.RawPrefix = raw[0 : len(addrs)+1]
+		msg.Head.RawHead = raw[len(addrs)+1 : bodyOff]
 	} else {
-		msg.Head.RawHead = msg.Head.Raw[0:bodyOff]
+		msg.Head.RawHead = raw[0:bodyOff]
 	}
-	msg.Body.Raw = msg.Head.Raw[bodyOff:]
 	msg.Body.Data = msg.Body.Raw[1:]
 	return
 }

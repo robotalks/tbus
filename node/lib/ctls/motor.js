@@ -5,11 +5,7 @@ MotorCtl.prototype.forward = function (speed, done) {
         done = speed;
         speed = 255;
     }
-    this._op = {
-        direction: proto.tbus.MotorDriveState.Direction.FWD,
-        speed: speed
-    };
-    this.on(done);
+    return this.setSpeed(speed, done);
 };
 
 MotorCtl.prototype.reverse = function (speed, done) {
@@ -17,33 +13,26 @@ MotorCtl.prototype.reverse = function (speed, done) {
         done = speed;
         speed = 255;
     }
-    this._op = {
-        direction: proto.tbus.MotorDriveState.Direction.REV,
-        speed: speed
-    };
-    this.on(done);
+    return this.setSpeed(-speed, done);
 };
 
-MotorCtl.prototype.on = function (done) {
-    if (this._op == null) {
-        this._op = {
-            direction: proto.tbus.MotorDriveState.Direction.FWD,
-            speed: 255
-        };
-    }
-    if (this._op.speed == 0) {
+MotorCtl.prototype.setSpeed = function (speed, done) {
+    if (speed == 0) {
         this.stop(done);
     } else {
-        this.start(this._op, done);
+        this.start({
+            direction: speed > 0 ?
+                proto.tbus.MotorDriveState.Direction.FWD :
+                proto.tbus.MotorDriveState.Direction.REV,
+            speed: speed < 0 ? -speed : speed
+        }, done);
     }
+    return this;
 };
 
-MotorCtl.prototype.brake = function (done) {
-    this.brake({ on: true }, done);
-};
-
-MotorCtl.prototype.release = function (done) {
-    this.brake({ on: false }, done);
+MotorCtl.prototype.setBrake = function (on, done) {
+    this.brake({ on: on }, done);
+    return this;
 };
 
 module.exports = MotorCtl;
