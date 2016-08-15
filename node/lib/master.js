@@ -41,6 +41,7 @@ var Master = Class({
         return this;
     },
 
+    // implement BusPort
     sendMsg: function (msg, done) {
         var callback = this._msgMap[msg.head.msgId]
         if (callback != null) {
@@ -63,17 +64,6 @@ var Master = Class({
     _unmapMsgId: function (id) {
         delete this._msgMap[id];
         this._msgIdBits.release(id);
-    },
-
-    _flushMsgMap: function () {
-        var err = new Error('disconnected');
-        for (var id in this._msgMap) {
-            var callback = this._msgMap[id];
-            this._unmapMsgId(id);
-            setImmediate(function () {
-                callback(err);
-            });
-        }
     }
 });
 

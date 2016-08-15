@@ -26,6 +26,15 @@ var Controller = Class({
         return this;
     },
 
+    device: function () {
+        return this._device;
+    },
+
+    setDevice: function (dev) {
+        this._device = dev;
+        return this;
+    },
+
     invoke: function (index, params, callback) {
         this._master.invoke(index, params, this._addrs, callback);
         return this;

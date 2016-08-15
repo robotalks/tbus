@@ -1,5 +1,4 @@
-var stream = require('stream'),
-    Class = require('js-class'),
+var Class = require('js-class'),
     protocol = require('./protocol.js'),
 
     DeviceInfo = require('../gen/tbus/bus_pb.js').DeviceInfo,
@@ -13,11 +12,23 @@ var Bus = Class({
         this._devices = [];
     },
 
+    // implement BusLogic
     setDevice: function (dev) {
         this._device = dev;
         return this;
     },
 
+    // implement BusPort
+    sendMsg: function (msg, done) {
+        if (this._device) {
+            this._device.busPort().sendMsg(msg, done);
+        } else {
+            done(new Error("no device associated"));
+        }
+        return this;
+    },
+
+    // implement Bus
     plug: function (device) {
         var address = ++ this._addressIndex;
         this._devices[address] = device;
@@ -25,19 +36,11 @@ var Bus = Class({
         return this;
     },
 
+    // implement Bus
     unplug: function (device) {
         var address = device.address();
         device.attach(null, 0);
         delete this._devices[address];
-        return this;
-    },
-
-    sendMsg: function (msg, done) {
-        if (this._device) {
-            this._device.busPort().sendMsg(msg, done);
-        } else {
-            done(new Error("no device associated"));
-        }
         return this;
     },
 

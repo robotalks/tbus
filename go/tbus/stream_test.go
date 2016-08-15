@@ -35,7 +35,7 @@ func TestStreamDevice(t *testing.T) {
 			localAddr.Port = listener.Addr().(*net.TCPAddr).Port
 			So(err, ShouldBeNil)
 
-			host := NewNetDeviceHost(listener)
+			host := NewRemoteDeviceHost(listener)
 			go func() {
 				hostErr = host.Run()
 				wg.Done()
@@ -48,7 +48,7 @@ func TestStreamDevice(t *testing.T) {
 			led.SetDeviceID(3)
 			bus.Plug(led)
 			busDev := NewBusDev(bus)
-			netPort := NewNetBusPort(busDev, func() (io.ReadWriteCloser, error) {
+			netPort := NewRemoteBusPort(busDev, func() (io.ReadWriteCloser, error) {
 				return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", localAddr.Port))
 			})
 			go func() {

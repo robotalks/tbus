@@ -9,6 +9,8 @@ module.exports = {
     Controller: require('./lib/control.js'),
     Bus:    require('./lib/bus.js'),
     Master: require('./lib/master.js'),
+    RemoteBusPort:    require('./lib/remotebusport.js'),
+    RemoteDeviceHost: require('./lib/remotedevhost.js'),
 
     protocol: require('./lib/protocol.js'),
 

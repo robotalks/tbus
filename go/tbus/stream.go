@@ -142,26 +142,26 @@ func (p *StreamBusPort) Run() error {
 // Dial is abstract remote connector
 type Dial func() (io.ReadWriteCloser, error)
 
-// NetBusPort hosts a device over network
-type NetBusPort struct {
+// RemoteBusPort exposes a device over network
+type RemoteBusPort struct {
 	Dialer Dial
 	Device Device
 
 	conn io.ReadWriteCloser
 }
 
-// NewNetBusPort creates a NetBusPort
-func NewNetBusPort(dev Device, dialer Dial) *NetBusPort {
-	return &NetBusPort{Dialer: dialer, Device: dev}
+// NewRemoteBusPort creates a RemoteBusPort
+func NewRemoteBusPort(dev Device, dialer Dial) *RemoteBusPort {
+	return &RemoteBusPort{Dialer: dialer, Device: dev}
 }
 
 // Conn returns current connection
-func (p *NetBusPort) Conn() io.ReadWriteCloser {
+func (p *RemoteBusPort) Conn() io.ReadWriteCloser {
 	return p.conn
 }
 
 // Run connect to remote and host the device
-func (p *NetBusPort) Run() error {
+func (p *RemoteBusPort) Run() error {
 	conn, err := p.Dialer()
 	if err == nil {
 		p.conn = conn
@@ -171,7 +171,7 @@ func (p *NetBusPort) Run() error {
 	return err
 }
 
-func (p *NetBusPort) runConn() error {
+func (p *RemoteBusPort) runConn() error {
 	defer p.conn.Close()
 
 	// the first message is sending device info for bus attachment
@@ -205,28 +205,28 @@ func (p *NetBusPort) runConn() error {
 	return err
 }
 
-// NetDeviceHost accepts connections from remote NetBusPort
+// RemoteDeviceHost accepts connections from RemoteBusPort
 // and creates StreamDevice for each connection.
-type NetDeviceHost struct {
+type RemoteDeviceHost struct {
 	Listener net.Listener
 	acceptCh chan *StreamDevice
 }
 
-// NewNetDeviceHost creates a new net device host
-func NewNetDeviceHost(listener net.Listener) *NetDeviceHost {
-	return &NetDeviceHost{
+// NewRemoteDeviceHost creates a new remote device host
+func NewRemoteDeviceHost(listener net.Listener) *RemoteDeviceHost {
+	return &RemoteDeviceHost{
 		Listener: listener,
 		acceptCh: make(chan *StreamDevice),
 	}
 }
 
 // AcceptChan returns chan for accepted device
-func (h *NetDeviceHost) AcceptChan() <-chan *StreamDevice {
+func (h *RemoteDeviceHost) AcceptChan() <-chan *StreamDevice {
 	return h.acceptCh
 }
 
 // Run starts accepting device connections
-func (h *NetDeviceHost) Run() error {
+func (h *RemoteDeviceHost) Run() error {
 	for {
 		conn, err := h.Listener.Accept()
 		if err != nil {

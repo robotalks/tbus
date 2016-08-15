@@ -84,6 +84,7 @@ var {{.ClassName}}Dev = Class(Device, {
                 dev['m:{{.Symbol}}'](params, done);
             });
 {{- end}}
+		logic.setDevice(this);
     },
 {{- range .Methods}}
 
