@@ -1,7 +1,7 @@
 {
   "name": "tbus",
   "description": "Things Bus is a Software Defined Bus for Things",
-  "version": "0.0.1-dev1",
+  "version": "0.0.1-dev2",
   "author": "EaseWay <easeway@gmail.com>",
   "main": "./index",
   "repository": {
