@@ -9,19 +9,14 @@ message DeviceInfo {
     uint32 address   = 1;
     uint32 class_id  = 2;
     uint32 device_id = 3;
+    map<string, string> labels = 4;
 }
 
 message BusEnumeration {
     repeated DeviceInfo devices = 1;
 }
 
-message ForwardMsg {
-    uint32 address = 1;
-    bytes  message = 2;
-}
-
 service Bus {
     option (class_id) = 0x0001;
     rpc Enumerate(google.protobuf.Empty) returns (BusEnumeration) { option (index) = 1; }
-    rpc Forward(ForwardMsg) returns (google.protobuf.Empty) { option (index) = 2; }
 }

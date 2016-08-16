@@ -125,6 +125,10 @@ var {{.ClassName}}Ctl = Class(Controller, {
         });
     },
 {{- end}}
+}, {
+    statics: {
+        CLASS_ID: {{.ClassID}}
+    }
 });
 
 {{- end}}

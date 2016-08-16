@@ -21,11 +21,11 @@ var RemoteDevice = Class(EventEmitter, {
 
     attach: function (busPort, addr) {
         this._busPort = busPort;
-        this._deviceInfo.setAddress(addr);
+        this._info.address = addr;
         if (this._initialAttach) {
             this.sendMsg(new protocol.Encoder()
                 .messageId(0)
-                .encodeBody(0, this._deviceInfo.serializeBinary())
+                .encodeBody(0, new DeviceInfo().fromDevice(this).serializeBinary())
                 .buildMsg(), function (err) {
                 // TODO error
             });
@@ -34,16 +34,20 @@ var RemoteDevice = Class(EventEmitter, {
         return this;
     },
 
+    deviceInfo: function () {
+        return this._info;
+    },
+
     address: function () {
-        return this._deviceInfo.getAddress();
+        return this._info.address;
     },
 
     classId: function () {
-        return this._deviceInfo.getClassId();
+        return this._info.classId;
     },
 
     deviceId: function () {
-        return this._deviceInfo.getDeviceId();
+        return this._info.deviceId;
     },
 
     busPort: function () {
@@ -84,14 +88,16 @@ var RemoteDevice = Class(EventEmitter, {
     _onMsg: function (msg) {
         if (this._init) {
             try {
-                this._deviceInfo = DeviceInfo.deserializeBinary(new Uint8Array(msg.body.data))
+                this._info = DeviceInfo
+                    .deserializeBinary(new Uint8Array(msg.body.data))
+                    .toObject();
             } catch (err) {
                 // TODO
                 console.dir(err)
             }
             this._initialAttach = true;
             delete this._init;
-            this._host.newDevice(this);
+            this._host._newDevice(this);
         } else if (this._busPort) {
             this._busPort.sendMsg(msg, function () { });
         }

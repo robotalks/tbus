@@ -1,4 +1,6 @@
-var MotorCtl = require('../../gen/tbus/motor_tbusdev.js').MotorCtl;
+var MotorCtl = require('../../gen/tbus/motor_tbusdev.js').MotorCtl,
+    MotorDriveState = require('../../gen/tbus/motor_pb.js').MotorDriveState,
+    MotorBrakeState = require('../../gen/tbus/motor_pb.js').MotorBrakeState;
 
 MotorCtl.prototype.forward = function (speed, done) {
     if (typeof(speed) == 'function') {
@@ -20,18 +22,20 @@ MotorCtl.prototype.setSpeed = function (speed, done) {
     if (speed == 0) {
         this.stop(done);
     } else {
-        this.start({
-            direction: speed > 0 ?
-                proto.tbus.MotorDriveState.Direction.FWD :
-                proto.tbus.MotorDriveState.Direction.REV,
-            speed: speed < 0 ? -speed : speed
-        }, done);
+        var param = new MotorDriveState();
+        param.setDirection(speed > 0 ?
+            proto.tbus.MotorDriveState.Direction.FWD :
+            proto.tbus.MotorDriveState.Direction.REV);
+        param.setSpeed(speed < 0 ? -speed : speed);
+        this.start(param, done);
     }
     return this;
 };
 
 MotorCtl.prototype.setBrake = function (on, done) {
-    this.brake({ on: on }, done);
+    var param = new MotorBrakeState();
+    param.setOn(on);
+    this.brake(param, done);
     return this;
 };
 

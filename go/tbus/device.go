@@ -13,19 +13,9 @@ type DeviceBase struct {
 	busPort BusPort
 }
 
-// Address returns current address
-func (d *DeviceBase) Address() uint8 {
-	return uint8(d.Info.Address)
-}
-
-// ClassID implements Device
-func (d *DeviceBase) ClassID() uint32 {
-	return d.Info.ClassId
-}
-
-// DeviceID implements Device
-func (d *DeviceBase) DeviceID() uint32 {
-	return d.Info.DeviceId
+// DeviceInfo returns device information
+func (d *DeviceBase) DeviceInfo() DeviceInfo {
+	return d.Info
 }
 
 // AttachTo implements Device
@@ -64,4 +54,36 @@ type LogicBase struct {
 // SetDevice implements DeviceLogic
 func (l *LogicBase) SetDevice(dev Device) {
 	l.Device = dev
+}
+
+// DeviceAddress is a helper to construct device address
+func DeviceAddress(devs ...Device) []uint8 {
+	addrs := make([]uint8, len(devs))
+	for n, dev := range devs {
+		addrs[n] = uint8(dev.DeviceInfo().Address)
+	}
+	return addrs
+}
+
+// AddLabel adds a single label to device info
+func (d *DeviceInfo) AddLabel(name, value string) *DeviceInfo {
+	m := d.Labels
+	if m == nil {
+		m = make(map[string]string)
+		d.Labels = m
+	}
+	m[name] = value
+	return d
+}
+
+// AddLabels adds multiple labels
+func (d *DeviceInfo) AddLabels(labels map[string]string) *DeviceInfo {
+	if d.Labels == nil {
+		d.Labels = labels
+	} else {
+		for k, v := range labels {
+			d.Labels[k] = v
+		}
+	}
+	return d
 }

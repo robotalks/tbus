@@ -1,7 +1,6 @@
 package tbus
 
 import (
-	"fmt"
 	"sort"
 	"sync"
 
@@ -51,7 +50,7 @@ func (b *LocalBus) Plug(dev Device) error {
 
 // Unplug implements Bus
 func (b *LocalBus) Unplug(dev Device) error {
-	addr := dev.Address()
+	addr := uint8(dev.DeviceInfo().Address)
 	if addr != 0 {
 		b.lock.Lock()
 		defer b.lock.Unlock()
@@ -97,20 +96,12 @@ func (b *LocalBus) Enumerate() (*BusEnumeration, error) {
 	enum := &BusEnumeration{}
 	b.lock.RLock()
 	for _, dev := range b.devices {
-		enum.Devices = append(enum.Devices, &DeviceInfo{
-			Address:  uint32(dev.Address()),
-			ClassId:  dev.ClassID(),
-			DeviceId: dev.DeviceID(),
-		})
+		info := dev.DeviceInfo()
+		enum.Devices = append(enum.Devices, &info)
 	}
 	b.lock.RUnlock()
 	sort.Sort(DeviceInfoListByAddr(enum.Devices))
 	return enum, nil
-}
-
-// Forward implements BusLogic
-func (b *LocalBus) Forward(*ForwardMsg) error {
-	return fmt.Errorf("not implemented")
 }
 
 func (b *LocalBus) sendToHost(msg *prot.Msg) error {

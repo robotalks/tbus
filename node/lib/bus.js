@@ -4,6 +4,9 @@ var Class = require('js-class'),
     DeviceInfo = require('../gen/tbus/bus_pb.js').DeviceInfo,
     BusEnumeration = require('../gen/tbus/bus_pb.js').BusEnumeration;
 
+// extensions
+require('./deviceinfo.js');
+
 var Bus = Class({
     constructor: function (options) {
         this.options = options || {};
@@ -70,11 +73,7 @@ var Bus = Class({
         var devices = [];
         for (var a in this._devices) {
             var dev = this._devices[a];
-            var info = new DeviceInfo();
-            info.setAddress(dev.address());
-            info.setClassId(dev.classId());
-            info.setDeviceId(dev.deviceId());
-            devices.push(info);
+            devices.push(new DeviceInfo().fromDevice(dev));
         }
         var busenum = new BusEnumeration();
         busenum.setDevicesList(devices);

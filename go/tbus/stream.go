@@ -66,19 +66,9 @@ func NewStreamDevice(classID uint32, rw io.ReadWriter) *StreamDevice {
 	return dev
 }
 
-// Address returns current address
-func (d *StreamDevice) Address() uint8 {
-	return uint8(d.Info.Address)
-}
-
-// ClassID implements Device
-func (d *StreamDevice) ClassID() uint32 {
-	return d.Info.ClassId
-}
-
-// DeviceID implements Device
-func (d *StreamDevice) DeviceID() uint32 {
-	return d.Info.DeviceId
+// DeviceInfo returns device information
+func (d *StreamDevice) DeviceInfo() DeviceInfo {
+	return d.Info
 }
 
 // BusPort implements Device
@@ -175,12 +165,8 @@ func (p *RemoteBusPort) runConn() error {
 	defer p.conn.Close()
 
 	// the first message is sending device info for bus attachment
-	info := &DeviceInfo{
-		Address:  0,
-		ClassId:  p.Device.ClassID(),
-		DeviceId: p.Device.DeviceID(),
-	}
-	encoded, err := proto.Marshal(info)
+	info := p.Device.DeviceInfo()
+	encoded, err := proto.Marshal(&info)
 	if err != nil {
 		return err
 	}
@@ -193,8 +179,8 @@ func (p *RemoteBusPort) runConn() error {
 	if err != nil {
 		return err
 	}
-	info = &DeviceInfo{}
-	if err = proto.Unmarshal(msg.Body.Data, info); err != nil {
+	info = DeviceInfo{}
+	if err = proto.Unmarshal(msg.Body.Data, &info); err != nil {
 		return err
 	}
 

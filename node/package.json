@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "debug": "^2.2.0",
-    "google-protobuf": "3.0.0",
+    "google-protobuf": "evo-bots/google-protobuf.js",
     "js-class": "0.0.2",
     "js-flow": "0.0.3"
   },

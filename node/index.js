@@ -11,6 +11,7 @@ module.exports = {
     Master: require('./lib/master.js'),
     RemoteBusPort:    require('./lib/remotebusport.js'),
     RemoteDeviceHost: require('./lib/remotedevhost.js'),
+    SocketConnector: require('./lib/socketconn.js'),
 
     protocol: require('./lib/protocol.js'),
 
@@ -24,7 +25,8 @@ module.exports = {
     ServoCtl: require('./gen/tbus/servo_tbusdev.js').ServoCtl,
 };
 
-// for ctl extensions
+// for extensions
+require('./lib/deviceinfo.js');
 require('./lib/ctls/led.js');
 require('./lib/ctls/motor.js');
 require('./lib/ctls/servo.js');

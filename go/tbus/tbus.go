@@ -55,9 +55,7 @@ type Bus interface {
 // Device defines a device instance
 type Device interface {
 	MsgSender
-	Address() uint8
-	ClassID() uint32
-	DeviceID() uint32
+	DeviceInfo() DeviceInfo
 	AttachTo(BusPort, uint8)
 	BusPort() BusPort
 }

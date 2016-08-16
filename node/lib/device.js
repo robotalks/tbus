@@ -4,29 +4,37 @@ var Class = require('js-class'),
 var Device = Class({
     constructor: function (classId, logic, options) {
         this.options = options || {}
-        this._classId  = classId;
-        this._deviceId = this.options.id || 0;
+        this._info = {
+            address: 0,
+            classId: classId,
+            deviceId: this.options.id || 0,
+            labels: {}
+        };
         this._methods = [];
         this.logic = logic;
         logic.setDevice(this);
     },
 
+    deviceInfo: function () {
+        return this._info;
+    },
+
     attach: function (busPort, addr) {
         this._busPort = busPort;
-        this._address = addr;
+        this._info.address = addr;
         return this;
     },
 
     address: function () {
-        return this._address;
+        return this._info.address;
     },
 
     classId: function () {
-        return this._classId;
+        return this._info.classId;
     },
 
     deviceId: function () {
-        return this._deviceId;
+        return this._info.deviceId;
     },
 
     busPort: function () {
@@ -34,16 +42,16 @@ var Device = Class({
     },
 
     setDeviceId: function (id) {
-        this._deviceId = id;
+        this._info.deviceId = id;
         return this;
     },
 
     sendMsg: function (msg, done) {
         if (protocol.needRoute(msg)) {
-            this.routeMsg(msg, done);
+            this._routeMsg(msg, done);
         } else {
             var methodIndex = msg.body.flag;
-            var methodParams = msg.body.body;
+            var methodParams = msg.body.data;
             var method = this._methods[methodIndex];
             if (method == null) {
                 done(new Error('unknown method ' + methodIndex));
@@ -69,7 +77,7 @@ var Device = Class({
         return this;
     },
 
-    routeMsg: function (msg, done) {
+    _routeMsg: function (msg, done) {
         var routeFn = this.logic.routeMsg;
         if (typeof(routeFn) == 'function') {
             routeFn.call(this.logic, msg, done);

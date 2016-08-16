@@ -45,7 +45,7 @@ func TestStreamDevice(t *testing.T) {
 			bus := NewLocalBus()
 			ledLogic := &testLED{}
 			led := NewLEDDev(ledLogic)
-			led.SetDeviceID(3)
+			led.SetDeviceID(3).Info.AddLabel("name", "led")
 			bus.Plug(led)
 			busDev := NewBusDev(bus)
 			netPort := NewRemoteBusPort(busDev, func() (io.ReadWriteCloser, error) {
@@ -70,8 +70,11 @@ func TestStreamDevice(t *testing.T) {
 			So(enum, ShouldNotBeNil)
 			devs := enum.Devices
 			So(devs, ShouldHaveLength, 1)
-			So(dev.Address(), ShouldEqual, busDev.Address())
+			So(dev.DeviceInfo().Address, ShouldEqual, busDev.DeviceInfo().Address)
 			So(devs[0].ClassId, ShouldEqual, LEDClassID)
+			So(devs[0].Labels, ShouldNotBeEmpty)
+			So(devs[0].Labels, ShouldContainKey, "name")
+			So(devs[0].Labels["name"], ShouldEqual, "led")
 
 			// turn on led
 			ledctl := NewLEDCtl(master)
