@@ -65,6 +65,11 @@ func DeviceAddress(devs ...Device) []uint8 {
 	return addrs
 }
 
+// DeviceAddress returns a full device address
+func (d *DeviceInfo) DeviceAddress() []uint8 {
+	return []uint8{uint8(d.Address)}
+}
+
 // AddLabel adds a single label to device info
 func (d *DeviceInfo) AddLabel(name, value string) *DeviceInfo {
 	m := d.Labels
