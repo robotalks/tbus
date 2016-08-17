@@ -1,6 +1,8 @@
 var Buffer = require('buffer').Buffer,
     stream = require('stream'),
-    Class = require('js-class');
+    Class = require('js-class'),
+    Empty = require('google-protobuf/google/protobuf/empty_pb.js').Empty,
+    ErrorProto = require('../gen/tbus/error_pb.js').Error;
 
 var PFX_ROUTING_MASK = 0xe0,
     PFX_ROUTING = 0xc0,
@@ -297,8 +299,7 @@ var DecodeStream = Class(stream.Writable, {
     },
 
     _handleErr: function (err) {
-        // TODO
-        console.error(err);
+        this.emit('error', err);
     },
 
     _handleEvent: function (event, msg) {
@@ -332,6 +333,19 @@ var Encoder = Class({
     body: function (body) {
         this._body = body;
         return this;
+    },
+
+    encodeError: function (err) {
+        var reply = new ErrorProto();
+        reply.setMessage(err.message);
+        return this.encodeBody(BF_ERROR, reply.serializeBinary());
+    },
+
+    encodeProto: function (flag, pbMsg) {
+        if (pbMsg == null) {
+            pbMsg = new Empty();
+        }
+        return this.encodeBody(flag, pbMsg.serializeBinary());
     },
 
     encodeBody: function (flag, body) {
@@ -410,7 +424,12 @@ var Encoder = Class({
 
 function decodeError(msg) {
     if (msg.body.flag & 0x80) {
-        // TODO
+        try {
+            var err = ErrorProto.deserializeBinary(new Uint8Array(msg.body.data));
+            return new Error(err.getMessage());
+        } catch (err) {
+            return err;
+        }
     }
     return null;
 }

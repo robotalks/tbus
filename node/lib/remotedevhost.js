@@ -25,10 +25,8 @@ var RemoteDevice = Class(EventEmitter, {
         if (this._initialAttach) {
             this.sendMsg(new protocol.Encoder()
                 .messageId(0)
-                .encodeBody(0, new DeviceInfo().fromDevice(this).serializeBinary())
-                .buildMsg(), function (err) {
-                // TODO error
-            });
+                .encodeProto(0, new DeviceInfo().fromDevice(this))
+                .buildMsg(), this._handleErr.bind(this));
             delete this._initialAttach;
         }
         return this;
@@ -63,14 +61,13 @@ var RemoteDevice = Class(EventEmitter, {
         if (this._conn != null) {
             this._conn.write(Buffer.concat([msg.head.raw, msg.body.raw]), null, done);
         } else {
-            // TODO
-            done();
+            done(new Error('not connected'));
         }
         return this;
     },
 
     _onData: function (data) {
-        this._decodeStream.write(data, null, function () { });
+        this._decodeStream.write(data, null, this._handleErr.bind(this));
     },
 
     _onEnd: function () {
@@ -81,7 +78,7 @@ var RemoteDevice = Class(EventEmitter, {
 
     _onError: function (err) {
         if (!this._init) {
-            this.emit('error', err);
+            this._handleErr(err);
         }
     },
 
@@ -92,14 +89,20 @@ var RemoteDevice = Class(EventEmitter, {
                     .deserializeBinary(new Uint8Array(msg.body.data))
                     .toObject();
             } catch (err) {
-                // TODO
-                console.dir(err)
+                this._handleErr(err);
+                return;
             }
             this._initialAttach = true;
             delete this._init;
             this._host._newDevice(this);
         } else if (this._busPort) {
-            this._busPort.sendMsg(msg, function () { });
+            this._busPort.sendMsg(msg, this._handleErr.bind(this));
+        }
+    },
+
+    _handleErr: function (err) {
+        if (err != null) {
+            this.emit('error', err);
         }
     }
 });

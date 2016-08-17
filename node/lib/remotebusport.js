@@ -30,8 +30,7 @@ var RemoteBusPort = Class(EventEmitter, {
         if (this._connection != null) {
             this._connection.write(Buffer.concat([msg.head.raw, msg.body.raw]), null, done);
         } else {
-            // TODO
-            done();
+            done(new Error('not connected'));
         }
         return this;
     },
@@ -59,11 +58,8 @@ var RemoteBusPort = Class(EventEmitter, {
             var info = new DeviceInfo().fromDevice(this._device);
             this.sendMsg(new protocol.Encoder()
                 .messageId(0)
-                .encodeBody(0, info.serializeBinary())
-                .buildMsg(), function (err) {
-                    // TODO
-                }
-            );
+                .encodeProto(0, info)
+                .buildMsg(), this._onError.bind(this));
         }
     },
 
@@ -76,7 +72,9 @@ var RemoteBusPort = Class(EventEmitter, {
     },
 
     _onError: function (err) {
-        this.emit('error', err);
+        if (err != null) {
+            this.emit('error', err);
+        }
     },
 
     _onMsg: function (msg) {
@@ -86,15 +84,14 @@ var RemoteBusPort = Class(EventEmitter, {
                 info = DeviceInfo.deserializeBinary(new Uint8Array(msg.body.data));
                 this._device.attach(this, info.getAddress());
             } catch (err) {
-                // TODO
-                console.dir(err);
+                this._onError(err);
+                return this;
             }
             delete this._attaching;
             this.emit('attached', info.getAddress());
         } else {
-            this._device.sendMsg(msg, function () {});
+            this._device.sendMsg(msg, this._onError.bind(this));
         }
-        // TODO error handling
     }
 });
 

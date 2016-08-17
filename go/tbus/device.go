@@ -30,8 +30,20 @@ func (d *DeviceBase) BusPort() BusPort {
 }
 
 // Reply write reply to bus
-func (d *DeviceBase) Reply(msgID uint32, reply proto.Message) error {
-	if reply == nil {
+func (d *DeviceBase) Reply(msgID uint32, reply proto.Message, err error) error {
+	return SendReply(d.busPort, msgID, reply, err)
+}
+
+// SendReply sends back reply
+func SendReply(sender MsgSender, msgID uint32, reply proto.Message, err error) error {
+	if sender == nil {
+		return ErrInvalidSender
+	}
+	flag := uint8(0)
+	if err != nil {
+		flag |= prot.BodyError
+		reply = &Error{Message: err.Error()}
+	} else if reply == nil {
 		reply = &empty.Empty{}
 	}
 
@@ -39,11 +51,11 @@ func (d *DeviceBase) Reply(msgID uint32, reply proto.Message) error {
 	if err != nil {
 		return err
 	}
-	msg, err := prot.EncodeAsMsg(nil, msgID, 0, encoded)
+	msg, err := prot.EncodeAsMsg(nil, msgID, flag, encoded)
 	if err != nil {
 		return err
 	}
-	return d.busPort.SendMsg(msg)
+	return sender.SendMsg(msg)
 }
 
 // LogicBase implements DeviceLogic

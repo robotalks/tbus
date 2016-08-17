@@ -15,7 +15,7 @@ var (
 	// ErrInvalidAddr indicates address doesn't map to a device
 	ErrInvalidAddr = fmt.Errorf("invalid address")
 	// ErrRouteNotSupport indicates the device doesn't support routing
-	ErrRouteNotSupport = fmt.Errorf("route not support")
+	ErrRouteNotSupport = fmt.Errorf("route not supported")
 	// ErrRecvAborted indicates the receiving is cancelled
 	ErrRecvAborted = fmt.Errorf("receiving aborted")
 	// ErrRecvEnd indicates the receiving is ended
@@ -24,6 +24,8 @@ var (
 	ErrAddrNotAvail = fmt.Errorf("address not available")
 	// ErrNoAssocDevice indicates a logic is not associated with device
 	ErrNoAssocDevice = fmt.Errorf("logic not associated with device")
+	// ErrInvalidSender indicates sender is unavailable
+	ErrInvalidSender = fmt.Errorf("sender not available")
 )
 
 // MsgReceiver provides a message chan for read
@@ -124,4 +126,23 @@ func (r *MsgReader) ReadMsg(recv MsgReceiver) (*prot.Msg, error) {
 		return nil, ErrRecvEnd
 	}
 	return &msg, nil
+}
+
+// ReadReply reads message and decode into reply
+func (r *MsgReader) ReadReply(recv MsgReceiver, reply proto.Message) error {
+	msg, err := r.ReadMsg(recv)
+	if err != nil {
+		return err
+	}
+	if (msg.Body.Flag & prot.BodyError) != 0 {
+		replyErr := &Error{}
+		if err = proto.Unmarshal(msg.Body.Data, replyErr); err != nil {
+			return err
+		}
+		return replyErr
+	}
+	if reply != nil {
+		err = proto.Unmarshal(msg.Body.Data, reply)
+	}
+	return err
 }

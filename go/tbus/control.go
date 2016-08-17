@@ -1,9 +1,6 @@
 package tbus
 
-import (
-	prot "github.com/evo-bots/tbus/go/tbus/protocol"
-	proto "github.com/golang/protobuf/proto"
-)
+import proto "github.com/golang/protobuf/proto"
 
 // Controller is the base class of device controller
 type Controller struct {
@@ -14,10 +11,10 @@ type Controller struct {
 }
 
 // Invoke invokes a method on a device
-func (c *Controller) Invoke(methodIndex uint8, params proto.Message) (*prot.Msg, error) {
+func (c *Controller) Invoke(methodIndex uint8, params proto.Message, reply proto.Message) error {
 	invocation, err := c.Master.Invoke(methodIndex, params, c.Address)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return c.ReadMsg(invocation)
+	return c.ReadReply(invocation, reply)
 }

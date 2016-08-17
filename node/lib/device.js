@@ -47,31 +47,27 @@ var Device = Class({
     },
 
     sendMsg: function (msg, done) {
+        setImmediate(done);
+        var self = this;
         if (protocol.needRoute(msg)) {
-            this._routeMsg(msg, done);
+            this._routeMsg(msg, function (err) {
+                if (err != null) {
+                    self.reply(msg.head.msgId, null, err);
+                }
+            });
         } else {
             var methodIndex = msg.body.flag;
             var methodParams = msg.body.data;
             var method = this._methods[methodIndex];
             if (method == null) {
-                done(new Error('unknown method ' + methodIndex));
+                this.reply(msg.head.msgId, null,
+                    new Error('unknown method ' + methodIndex));
             } else {
-                var self = this;
                 setImmediate(function () {
                     method.func(methodParams, function (err, reply) {
-                        if (err != null) {
-                            // TODO encode error
-                            console.error(err);
-                        } else {
-                            self.reply(new protocol.Encoder()
-                                .messageId(msg.head.msgId)
-                                .encodeBody(0, reply)
-                                .buildMsg()
-                            );
-                        }
+                        self.reply(msg.head.msgId, reply, err);
                     });
                 });
-                done();
             }
         }
         return this;
@@ -95,9 +91,20 @@ var Device = Class({
         return this;
     },
 
-    reply: function (msg) {
+    reply: function (msgId, reply, err) {
         if (this._busPort) {
-            this._busPort.sendMsg(msg, function () { });
+            var encoder = new protocol.Encoder();
+            encoder.messageId(msgId);
+            if (err != null) {
+                encoder.encodeError(err);
+            } else {
+                encoder.encodeProto(0, reply);
+            }
+            this._busPort.sendMsg(encoder.buildMsg(), function (err) {
+                if (err != null) {
+                    console.error('Device.reply error: %j, %j', err, this._info);
+                }
+            }.bind(this));
         }
         return this;
     }

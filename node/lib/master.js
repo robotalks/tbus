@@ -31,7 +31,7 @@ var Master = Class({
         }
         encoder
             .messageId(msgId)
-            .encodeBody(index, params);
+            .encodeProto(index, params);
         this._device.sendMsg(encoder.buildMsg(), function (err) {
             if (err != null) {
                 this._unmapMsgId(msgId);

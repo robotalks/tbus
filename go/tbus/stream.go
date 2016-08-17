@@ -3,6 +3,7 @@ package tbus
 import (
 	"io"
 	"net"
+	"strings"
 	"sync"
 
 	prot "github.com/evo-bots/tbus/go/tbus/protocol"
@@ -42,7 +43,7 @@ func DecodeStream(reader io.Reader, sender MsgSender) error {
 			err = sender.SendMsg(&msg)
 		}
 		if err != nil {
-			return err
+			return IgnoreClosingErr(err)
 		}
 	}
 }
@@ -103,7 +104,7 @@ func (d *StreamDevice) AttachTo(busPort BusPort, addr uint8) {
 // Run pipes remote msg to bus port
 func (d *StreamDevice) Run() error {
 	if d.initErr != nil {
-		return d.initErr
+		return IgnoreClosingErr(d.initErr)
 	}
 	return DecodeStream(d.Reader, d.busPort)
 }
@@ -129,6 +130,13 @@ func (p *StreamBusPort) Run() error {
 	return DecodeStream(p.Reader, p.Device)
 }
 
+// RemoteDevice is a remote device communicated over a connection
+type RemoteDevice interface {
+	Device
+	io.Closer
+	Run() error
+}
+
 // Dial is abstract remote connector
 type Dial func() (io.ReadWriteCloser, error)
 
@@ -150,6 +158,15 @@ func (p *RemoteBusPort) Conn() io.ReadWriteCloser {
 	return p.conn
 }
 
+// Close closes the connection
+func (p *RemoteBusPort) Close() error {
+	conn := p.conn
+	if conn != nil {
+		return conn.Close()
+	}
+	return nil
+}
+
 // Run connect to remote and host the device
 func (p *RemoteBusPort) Run() error {
 	conn, err := p.Dialer()
@@ -158,7 +175,7 @@ func (p *RemoteBusPort) Run() error {
 		err = p.runConn()
 		p.conn = nil
 	}
-	return err
+	return IgnoreClosingErr(err)
 }
 
 func (p *RemoteBusPort) runConn() error {
@@ -195,19 +212,19 @@ func (p *RemoteBusPort) runConn() error {
 // and creates StreamDevice for each connection.
 type RemoteDeviceHost struct {
 	Listener net.Listener
-	acceptCh chan *StreamDevice
+	acceptCh chan RemoteDevice
 }
 
 // NewRemoteDeviceHost creates a new remote device host
 func NewRemoteDeviceHost(listener net.Listener) *RemoteDeviceHost {
 	return &RemoteDeviceHost{
 		Listener: listener,
-		acceptCh: make(chan *StreamDevice),
+		acceptCh: make(chan RemoteDevice),
 	}
 }
 
 // AcceptChan returns chan for accepted device
-func (h *RemoteDeviceHost) AcceptChan() <-chan *StreamDevice {
+func (h *RemoteDeviceHost) AcceptChan() <-chan RemoteDevice {
 	return h.acceptCh
 }
 
@@ -216,7 +233,7 @@ func (h *RemoteDeviceHost) Run() error {
 	for {
 		conn, err := h.Listener.Accept()
 		if err != nil {
-			return err
+			return IgnoreClosingErr(err)
 		}
 		msg, err := prot.Decode(conn)
 		if err != nil {
@@ -227,10 +244,53 @@ func (h *RemoteDeviceHost) Run() error {
 			if err != nil {
 				conn.Close()
 			} else {
-				device := NewStreamDevice(info.ClassId, conn)
-				device.SetDeviceID(info.DeviceId)
-				h.acceptCh <- device
+				h.acceptCh <- NewRemoteDevice(*info, conn)
 			}
 		}
 	}
+}
+
+type remoteStreamDevice struct {
+	StreamDevice
+	conn io.ReadWriteCloser
+}
+
+// NewRemoteDevice creates a connection backed remote device
+func NewRemoteDevice(info DeviceInfo, conn io.ReadWriteCloser) RemoteDevice {
+	d := &remoteStreamDevice{conn: conn}
+	d.Reader = conn
+	d.Writer = conn
+	d.Info = info
+	d.init = true
+	return d
+}
+
+// Close implements RemoteDevice
+func (d *remoteStreamDevice) Close() error {
+	return d.conn.Close()
+}
+
+// IsErrClosing determines if the error is caused due to stream closing
+func IsErrClosing(err error) bool {
+	if err == nil {
+		return false
+	}
+	if strings.Contains(err.Error(), "use of closed network connection") {
+		return true
+	}
+	if opErr, ok := err.(*net.OpError); ok && opErr.Err == io.EOF {
+		return true
+	}
+	return false
+}
+
+// IgnoreClosingErr returns nil if err is closing error
+func IgnoreClosingErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if IsErrClosing(err) {
+		return nil
+	}
+	return err
 }

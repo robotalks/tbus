@@ -68,7 +68,7 @@ func (b *LocalBus) RouteMsg(msg *prot.Msg) error {
 	device := b.devices[addr]
 	b.lock.RUnlock()
 	if device == nil {
-		return ErrInvalidAddr
+		return SendReply(b.Device.BusPort(), msg.Head.MsgID, nil, ErrInvalidAddr)
 	}
 	msg.Head.Addrs = msg.Head.Addrs[1:]
 	if len(msg.Head.Addrs) == 0 {

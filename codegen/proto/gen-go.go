@@ -67,13 +67,21 @@ type {{.ClassName}}Dev struct {
     Logic {{.ClassName}}Logic
 }
 
+// New{{.ClassName}}Dev creates a new device
+func New{{.ClassName}}Dev(logic {{.ClassName}}Logic) *{{.ClassName}}Dev {
+    d := &{{.ClassName}}Dev{Logic: logic}
+    d.Info.ClassId = {{.ClassName}}ClassID
+	logic.SetDevice(d)
+    return d
+}
+
 // SendMsg implements Device
 func (d *{{.ClassName}}Dev) SendMsg(msg *prot.Msg) (err error) {
 	if msg.Head.NeedRoute() {
 {{- if .Router}}
 		return d.Logic.({{$tbus}}MsgRouter).RouteMsg(msg)
 {{- else}}
-		return {{$tbus}}ErrRouteNotSupport
+		return d.Reply(msg.Head.MsgID, nil, {{$tbus}}ErrRouteNotSupport)
 {{- end}}
 	}
     var reply proto.Message
@@ -93,18 +101,7 @@ func (d *{{.ClassName}}Dev) SendMsg(msg *prot.Msg) (err error) {
     default:
         err = {{$tbus}}ErrInvalidMethod
     }
-	if err != nil {
-		return
-	}
-    return d.Reply(msg.Head.MsgID, reply)
-}
-
-// New{{.ClassName}}Dev creates a new device
-func New{{.ClassName}}Dev(logic {{.ClassName}}Logic) *{{.ClassName}}Dev {
-    d := &{{.ClassName}}Dev{Logic: logic}
-    d.Info.ClassId = {{.ClassName}}ClassID
-	logic.SetDevice(d)
-    return d
+    return d.Reply(msg.Head.MsgID, reply, err)
 }
 
 // SetDeviceID sets device id
@@ -134,16 +131,12 @@ func (c *{{.ClassName}}Ctl) SetAddress(addrs []uint8) *{{.ClassName}}Ctl {
 {{$class := . }}{{range .Methods -}}
 // {{.Symbol}} wraps class {{$class.ClassName}}
 func (c *{{$class.ClassName}}Ctl) {{.Symbol}}({{with .ParamType}}params *{{.}}{{end}}) {{if .ReturnType}}(*{{.ReturnType}}, error){{else}}error{{end}} {
-	{{if .ReturnType}}msg{{else}}_{{end}}, err := c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}})
 	{{- if .ReturnType}}
-	if err != nil {
-		return nil, err
-	}
 	reply := &{{.ReturnType}}{}
-	err = proto.Unmarshal(msg.Body.Data, reply)
+	err := c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, reply)
 	return reply, err
 	{{- else}}
-	return err
+	return c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, nil)
 	{{- end}}
 }
 

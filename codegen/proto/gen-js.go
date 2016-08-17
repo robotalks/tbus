@@ -92,12 +92,7 @@ var {{.ClassName}}Dev = Class(Device, {
         {{- if .ParamType}}
         params = {{.ParamType}}.deserializeBinary(new Uint8Array(params))
         {{- end}}
-        this.logic.{{.Symbol}}({{if .ParamType}}params, {{end}}function (err, result) {
-            if (err == null) {
-                result = {{if .ReturnType}}result{{else}}new proto.google.protobuf.Empty(){{end}}.serializeBinary();
-            }
-            done(err, result);
-        });
+        this.logic.{{.Symbol}}({{if .ParamType}}params, {{end}}done);
     },
 {{- end}}
 }, {
@@ -113,7 +108,7 @@ var {{.ClassName}}Ctl = Class(Controller, {
 {{- range .Methods}}
 
     {{.Symbol}}: function ({{if .ParamType}}params, {{end}}done) {
-        this.invoke(1, {{if .ParamType}}params{{else}}new proto.google.protobuf.Empty(){{end}}.serializeBinary(), function (err, reply) {
+        this.invoke(1, {{if .ParamType}}params{{else}}null{{end}}, function (err, reply) {
             {{- if .ReturnType}}
             if (err == null) {
                 reply = {{.ReturnType}}.deserializeBinary(new Uint8Array(reply));
