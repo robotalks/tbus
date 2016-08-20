@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"os/exec"
 
 	proto "github.com/golang/protobuf/proto"
 	desc "github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -30,6 +32,7 @@ var extIndex = &proto.ExtensionDesc{
 }
 
 type protocParser struct {
+	request *plugin.CodeGeneratorRequest
 }
 
 // NewProtocParser creates a parser for protoc
@@ -58,6 +61,8 @@ func (p *protocParser) Parse(reader io.Reader) (*Definition, error) {
 	if err = proto.Unmarshal(input, &req); err != nil {
 		return nil, err
 	}
+
+	p.request = &req
 
 	def := &Definition{}
 	if err = def.ParseArgs(req.GetParameter()); err != nil {
@@ -117,14 +122,48 @@ func (p *protocParser) Parse(reader io.Reader) (*Definition, error) {
 	return def, nil
 }
 
+// NewOutput implements Output
+func (p *protocParser) NewOutput(writer io.Writer) (Output, error) {
+	return &protocOutput{request: p.request, writer: writer}, nil
+}
+
 type protocOutput struct {
+	request  *plugin.CodeGeneratorRequest
 	writer   io.Writer
 	response plugin.CodeGeneratorResponse
 }
 
-// NewProtocOutput creates an output for protoc
-func NewProtocOutput(writer io.Writer) Output {
-	return &protocOutput{writer: writer}
+func (o *protocOutput) Stage(command, parameter string) ([]*GeneratedFile, error) {
+	o.request.Parameter = proto.String(parameter)
+	input, err := proto.Marshal(o.request)
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command("protoc-gen-" + command)
+	cmd.Env = os.Environ()
+	cmd.Stdin = bytes.NewBuffer(input)
+	cmd.Stderr = os.Stderr
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err = cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	err = proto.Unmarshal(out.Bytes(), &o.response)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]*GeneratedFile, 0, len(o.response.File))
+	for _, f := range o.response.File {
+		if f.Name == nil || *f.Name == "" {
+			continue
+		}
+		files = append(files, &GeneratedFile{Name: *f.Name, Content: f.Content})
+	}
+	return files, nil
 }
 
 func (o *protocOutput) GenerateFile(name string) (io.WriteCloser, error) {
@@ -154,6 +193,12 @@ func (w *protocFileWriter) Write(data []byte) (int, error) {
 
 func (w *protocFileWriter) Close() error {
 	w.file.Content = proto.String(w.buffer.String())
+	for _, f := range w.response.File {
+		if f.Name != nil && *f.Name == *w.file.Name {
+			f.Content = w.file.Content
+			return nil
+		}
+	}
 	w.response.File = append(w.response.File, w.file)
 	return nil
 }

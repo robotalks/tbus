@@ -86,12 +86,20 @@ func (d *Definition) ParseArgs(args string) error {
 // Parser parses input and build definition
 type Parser interface {
 	Parse(io.Reader) (*Definition, error)
+	NewOutput(io.Writer) (Output, error)
 }
 
 // Output is the output for code generators
 type Output interface {
 	io.Closer
+	Stage(cmd, param string) ([]*GeneratedFile, error)
 	GenerateFile(name string) (io.WriteCloser, error)
+}
+
+// GeneratedFile represents a generated file
+type GeneratedFile struct {
+	Name    string
+	Content *string
 }
 
 // Generator is the abstact code generator, implement language specific

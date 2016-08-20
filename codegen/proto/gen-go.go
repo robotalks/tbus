@@ -15,12 +15,33 @@ type goGenerator struct {
 }
 
 func (g *goGenerator) Generate(def *Definition, out Output) error {
-	for _, f := range def.Files {
-		w, err := out.GenerateFile(SuffixFileName(f.Name, goDeviceFileSuffix))
+	files, err := out.Stage("go", "")
+	if err != nil {
+		return err
+	}
+	fileMap := make(map[string]*GeneratedFile)
+	for _, f := range files {
+		fileMap[f.Name] = f
+		w, err := out.GenerateFile(f.Name)
+		if err == nil {
+			err = g.fixImports(f, w)
+			w.Close()
+		}
 		if err != nil {
 			return err
 		}
-		err = g.generate(f, w)
+	}
+	for _, f := range def.Files {
+		fileName := SuffixFileName(f.Name, goGenFileSuffix)
+		gf := fileMap[fileName]
+		if gf == nil {
+			continue
+		}
+		w, err := out.GenerateFile(fileName)
+		if err != nil {
+			return err
+		}
+		err = g.generate(f, gf, w)
 		w.Close()
 		if err != nil {
 			return err
@@ -30,21 +51,18 @@ func (g *goGenerator) Generate(def *Definition, out Output) error {
 }
 
 const (
-	goDeviceFileSuffix = ".tbusdev.go"
+	goGenFileSuffix = ".pb.go"
+	goBadImport     = "\nimport _ \"tbus/common\"\n"
 
-	goSource = `//
+	goDecls = `import prot "github.com/robotalks/tbus/go/tbus/protocol"
+{{- range .Imports}}
+import {{with .Alias}}{{.}} {{end}}"{{.Pkg}}"
+{{- end}}
+`
+	goSource = `
+//
 // GENERTED FROM {{.Source}}, DO NOT EDIT
 // {{- $tbus := .PkgPfx}}
-
-package {{.Package}}
-
-import (
-    prot "github.com/robotalks/tbus/go/tbus/protocol"
-    proto "github.com/golang/protobuf/proto"
-{{- range .Imports}}
-    {{with .Alias}}{{.}} {{end}}"{{.Pkg}}"
-{{- end}}
-)
 
 {{range .Classes -}}
 // {{.ClassName}}ClassID is the class ID of {{.ClassName}}
@@ -147,7 +165,15 @@ func (c *{{$class.ClassName}}Ctl) {{.Symbol}}({{with .ParamType}}params *{{.}}{{
 
 var (
 	goSourceTemplate = template.Must(template.New("source").Parse(goSource))
+	goDeclsTemplate  = template.Must(template.New("import").Parse(goDecls))
 )
+
+func (g *goGenerator) fixImports(f *GeneratedFile, w io.Writer) error {
+	content := strings.Replace(*f.Content, goBadImport, "\n", 1)
+	f.Content = &content
+	_, err := io.WriteString(w, content)
+	return err
+}
 
 type goClass struct {
 	ClassName string
@@ -177,7 +203,7 @@ type goFile struct {
 	Classes []goClass
 }
 
-func (g *goGenerator) generate(f *DefFile, w io.Writer) error {
+func (g *goGenerator) generate(f *DefFile, gf *GeneratedFile, w io.Writer) error {
 	ctx := goFile{Source: f.Name, Package: f.Package}
 	if f.Options.GoPackage != "" {
 		ctx.Package = filepath.Base(f.Options.GoPackage)
@@ -210,6 +236,23 @@ func (g *goGenerator) generate(f *DefFile, w io.Writer) error {
 		}
 		ctx.Classes = append(ctx.Classes, cls)
 	}
+
+	content := *gf.Content
+	firstImport := strings.Index(content, "\nimport ")
+	if firstImport > 0 {
+		if _, err := io.WriteString(w, content[0:firstImport+1]); err != nil {
+			return err
+		}
+		if err := goDeclsTemplate.Execute(w, &ctx); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, content[firstImport+1:]); err != nil {
+			return err
+		}
+	} else if _, err := io.WriteString(w, content); err != nil {
+		return err
+	}
+
 	return goSourceTemplate.Execute(w, &ctx)
 }
 

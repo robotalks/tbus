@@ -37,8 +37,10 @@ targets:
     cmds:
       - mkdir -p bin
       - go build -o bin/protoc-gen-tbus ./codegen/cmd/protoc-gen-tbus
+      - go build -o bin/tbus-proto-gen ./codegen/cmd/tbus-proto-gen
     artifacts:
       - bin/protoc-gen-tbus
+      - bin/tbus-proto-gen
 
   gen-go:
     description: generate source code for Go
@@ -46,12 +48,9 @@ targets:
       - codegen
     watches:
       - proto
-      - hack/fixpb-goimports.sh
     cmds:
       - 'export PATH=`pwd`/bin:$PATH'
-      - 'protoc -Iproto --go_out=go proto/tbus/*.proto'
-      - hack/fixpb-goimports.sh
-      - 'protoc -Iproto --tbus_out=go,internal:go proto/tbus/*.proto'
+      - tbus-proto-gen -lang=go -internal -out=go -proto-dir=proto proto/tbus/*.proto
 
   gen-node:
     description: generate source code for Node.js
@@ -62,9 +61,7 @@ targets:
     cmds:
       - mkdir -p node/gen
       - 'export PATH=`pwd`/bin:$PATH'
-      - 'protoc -Iproto --js_out=import_style=commonjs,binary:node/gen proto/tbus/common/*.proto'
-      - 'protoc -Iproto --js_out=import_style=commonjs,binary:node/gen proto/tbus/*.proto'
-      - 'protoc -Iproto --tbus_out=js,internal:node/gen proto/tbus/*.proto'
+      - tbus-proto-gen -lang=js -internal -out=node/gen -proto-dir=proto proto/tbus/*.proto
 
   generate:
     description: generate source code
