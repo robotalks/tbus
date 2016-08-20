@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	prot "github.com/evo-bots/tbus/go/tbus/protocol"
 	proto "github.com/golang/protobuf/proto"
+	prot "github.com/robotalks/tbus/go/tbus/protocol"
 )
 
 // MsgStreamer read/write msg using stream

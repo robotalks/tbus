@@ -8,8 +8,8 @@ targets:
       - hack/toolchain
     build: hack/toolchain
 
-  vendor:
-    description: fetch dependencies
+  vendor-codegen:
+    description: fetch dependencies for codegen
     after:
       - toolchain
     watches:
@@ -18,10 +18,20 @@ targets:
     cmds:
       - gvt restore
 
+  vendor-go:
+    description: fetch dependencies for tbus Go pkg
+    after:
+      - toolchain
+    watches:
+      - go/vendor/manifest
+    workdir: go
+    cmds:
+      - gvt restore
+
   codegen:
     description: build code generator
     after:
-      - vendor
+      - vendor-codegen
     watches:
       - codegen/**/**/*.go
     cmds:
@@ -65,6 +75,7 @@ targets:
     description: test go code
     after:
       - gen-go
+      - vendor-go
     watches:
       - go/tbus
     cmds:
@@ -98,5 +109,5 @@ targets:
 
 settings:
   docker:
-    image: 'tbus-gotool:latest'
-    src-volume: /go/src/github.com/evo-bots/tbus
+    image: 'tbus-toolchain:latest'
+    src-volume: /go/src/github.com/robotalks/tbus

@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
-	prot "github.com/evo-bots/tbus/go/tbus/protocol"
 	proto "github.com/golang/protobuf/proto"
+	prot "github.com/robotalks/tbus/go/tbus/protocol"
 )
 
 var (

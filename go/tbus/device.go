@@ -1,9 +1,9 @@
 package tbus
 
 import (
-	prot "github.com/evo-bots/tbus/go/tbus/protocol"
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
+	prot "github.com/robotalks/tbus/go/tbus/protocol"
 )
 
 // DeviceBase implements basic device operations

@@ -4,7 +4,7 @@ import (
 	"sort"
 	"sync"
 
-	prot "github.com/evo-bots/tbus/go/tbus/protocol"
+	prot "github.com/robotalks/tbus/go/tbus/protocol"
 	bitset "github.com/willf/bitset"
 )
 

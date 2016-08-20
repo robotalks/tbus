@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	proto "github.com/evo-bots/tbus/codegen/proto"
+	proto "github.com/robotalks/tbus/codegen/proto"
 )
 
 func generate() error {

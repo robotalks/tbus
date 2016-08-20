@@ -6,7 +6,7 @@
   "main": "./index",
   "repository": {
     "type": "git",
-    "url": "https://github.com/evo-bots/tbus"
+    "url": "https://github.com/robotalks/tbus"
   },
   "engines": {
     "node": ">=4"
@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "debug": "^2.2.0",
-    "google-protobuf": "evo-bots/google-protobuf.js",
+    "google-protobuf": "robotalks/google-protobuf.js",
     "js-class": "0.0.2",
     "js-flow": "0.0.3"
   },

@@ -39,7 +39,7 @@ const (
 package {{.Package}}
 
 import (
-    prot "github.com/evo-bots/tbus/go/tbus/protocol"
+    prot "github.com/robotalks/tbus/go/tbus/protocol"
     proto "github.com/golang/protobuf/proto"
 {{- range .Imports}}
     {{with .Alias}}{{.}} {{end}}"{{.Pkg}}"
@@ -185,7 +185,7 @@ func (g *goGenerator) generate(f *DefFile, w io.Writer) error {
 	if !g.internal {
 		ctx.Imports = append(ctx.Imports, goImport{
 			Alias: "tbus",
-			Pkg:   "github.com/evo-bots/tbus/go/tbus",
+			Pkg:   "github.com/robotalks/tbus/go/tbus",
 		})
 		ctx.PkgPfx = "tbus."
 	}
