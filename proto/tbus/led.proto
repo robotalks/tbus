@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
-import "common/options.proto";
+import "tbus/common/options.proto";
 
 package tbus;
 

@@ -2,20 +2,21 @@
 format: hypermake.v0
 
 targets:
-  gotool:
+  toolchain:
     description: toolchain to build Go source code
     watches:
-      - hack/gotool
-    build: hack/gotool
+      - hack/toolchain
+    build: hack/toolchain
 
   vendor:
     description: fetch dependencies
     after:
-      - gotool
+      - toolchain
     watches:
       - codegen/vendor/manifest
+    workdir: codegen
     cmds:
-      - 'cd codegen && gvt restore'
+      - gvt restore
 
   codegen:
     description: build code generator
@@ -26,6 +27,8 @@ targets:
     cmds:
       - mkdir -p bin
       - go build -o bin/protoc-gen-tbus ./codegen/cmd/protoc-gen-tbus
+    artifacts:
+      - bin/protoc-gen-tbus
 
   gen-go:
     description: generate source code for Go
@@ -49,13 +52,49 @@ targets:
     cmds:
       - mkdir -p node/gen
       - 'export PATH=`pwd`/bin:$PATH'
-      - 'protoc -Iproto --js_out=import_style=commonjs,binary:node/gen proto/tbus/*.proto proto/common/*.proto'
+      - 'protoc -Iproto --js_out=import_style=commonjs,binary:node/gen proto/tbus/common/*.proto'
+      - 'protoc -Iproto --js_out=import_style=commonjs,binary:node/gen proto/tbus/*.proto'
       - 'protoc -Iproto --tbus_out=js,internal:node/gen proto/tbus/*.proto'
 
   generate:
     description: generate source code
     after:
       - 'gen-*'
+
+  test-go:
+    description: test go code
+    after:
+      - gen-go
+    watches:
+      - go/tbus
+    cmds:
+      - go test ./go/tbus/...
+
+  test-node:
+    description: test Node.js source code
+    after:
+      - gen-node
+      - node-deps
+    watches:
+      - node
+    cmds:
+      - cd node
+      - ./node_modules/.bin/mocha
+
+  test:
+    description: run tests
+    after:
+      - 'test-*'
+
+  node-deps:
+    description: install node modules
+    after:
+      - toolchain
+    watches:
+      - node/package.json
+    cmds:
+      - cd node
+      - npm install
 
 settings:
   docker:
