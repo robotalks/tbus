@@ -50,7 +50,7 @@ targets:
       - proto
     cmds:
       - 'export PATH=`pwd`/bin:$PATH'
-      - tbus-proto-gen -lang=go -internal -out=go -proto-dir=proto proto/tbus/*.proto
+      - TBUS_INTERNAL=1 tbus-proto-gen -lang=go -out=go -from=proto tbus
 
   gen-node:
     description: generate source code for Node.js
@@ -61,7 +61,7 @@ targets:
     cmds:
       - mkdir -p node/gen
       - 'export PATH=`pwd`/bin:$PATH'
-      - tbus-proto-gen -lang=js -internal -out=node/gen -proto-dir=proto proto/tbus/*.proto
+      - TBUS_INTERNAL=1 tbus-proto-gen -lang=js -out=node/gen -from=proto tbus
 
   generate:
     description: generate source code

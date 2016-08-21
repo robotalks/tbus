@@ -165,6 +165,9 @@ type jsFile struct {
 func (g *javascriptGenerator) generate(f *DefFile, w io.Writer) error {
 	ctx := jsFile{Source: f.Name}
 	for _, fn := range f.Deps {
+		if strings.HasPrefix(fn, "tbus/common/") {
+			continue
+		}
 		jsfn := SuffixFileName(fn, jsProtoFileSuffix)
 		if strings.HasPrefix(fn, "google/") {
 			ctx.Requires = append(ctx.Requires, "google-protobuf/"+jsfn)
