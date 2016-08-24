@@ -70,9 +70,9 @@ const {{.ClassName}}ClassID uint32 = {{.ClassID}}
 
 // {{.ClassName}}Logic defines the logic interface
 type {{.ClassName}}Logic interface {
-	{{$tbus}}DeviceLogic
+    {{$tbus}}DeviceLogic
 {{- if .Router}}
-	{{$tbus}}MsgRouter
+    {{$tbus}}MsgRouter
 {{- end}}
 {{- range .Methods}}
     {{.Symbol}}({{with .ParamType}}*{{.}}{{end}}) {{if .ReturnType}}(*{{.ReturnType}}, error){{else}}error{{end}}
@@ -89,21 +89,21 @@ type {{.ClassName}}Dev struct {
 func New{{.ClassName}}Dev(logic {{.ClassName}}Logic) *{{.ClassName}}Dev {
     d := &{{.ClassName}}Dev{Logic: logic}
     d.Info.ClassId = {{.ClassName}}ClassID
-	logic.SetDevice(d)
+    logic.SetDevice(d)
     return d
 }
 
 // SendMsg implements Device
 func (d *{{.ClassName}}Dev) SendMsg(msg *prot.Msg) (err error) {
-	if msg.Head.NeedRoute() {
+    if msg.Head.NeedRoute() {
 {{- if .Router}}
-		return d.Logic.({{$tbus}}MsgRouter).RouteMsg(msg)
+        return d.Logic.({{$tbus}}MsgRouter).RouteMsg(msg)
 {{- else}}
-		return d.Reply(msg.Head.MsgID, nil, {{$tbus}}ErrRouteNotSupport)
+        return d.Reply(msg.Head.MsgID, nil, {{$tbus}}ErrRouteNotSupport)
 {{- end}}
-	}
+    }
     var reply proto.Message
-	switch msg.Body.Flag {
+    switch msg.Body.Flag {
 {{- range .Methods}}
     case {{.Index}}: // {{.Name}}
         {{- if .ParamType}}
@@ -124,8 +124,8 @@ func (d *{{.ClassName}}Dev) SendMsg(msg *prot.Msg) (err error) {
 
 // SetDeviceID sets device id
 func (d *{{.ClassName}}Dev) SetDeviceID(id uint32) *{{.ClassName}}Dev {
-	d.Info.DeviceId = id
-	return d
+    d.Info.DeviceId = id
+    return d
 }
 
 // {{.ClassName}}Ctl is the device controller
@@ -134,28 +134,28 @@ type {{.ClassName}}Ctl struct {
 }
 
 // New{{.ClassName}}Ctl creates controller for {{.ClassName}}
-func New{{.ClassName}}Ctl(master Master) *{{.ClassName}}Ctl {
-	c := &{{.ClassName}}Ctl{}
-	c.Master = master
-	return c
+func New{{.ClassName}}Ctl(master {{$tbus}}Master) *{{.ClassName}}Ctl {
+    c := &{{.ClassName}}Ctl{}
+    c.Master = master
+    return c
 }
 
 // SetAddress sets routing address for target device
 func (c *{{.ClassName}}Ctl) SetAddress(addrs []uint8) *{{.ClassName}}Ctl {
-	c.Address = addrs
-	return c
+    c.Address = addrs
+    return c
 }
 
 {{$class := . }}{{range .Methods -}}
 // {{.Symbol}} wraps class {{$class.ClassName}}
 func (c *{{$class.ClassName}}Ctl) {{.Symbol}}({{with .ParamType}}params *{{.}}{{end}}) {{if .ReturnType}}(*{{.ReturnType}}, error){{else}}error{{end}} {
-	{{- if .ReturnType}}
-	reply := &{{.ReturnType}}{}
-	err := c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, reply)
-	return reply, err
-	{{- else}}
-	return c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, nil)
-	{{- end}}
+    {{- if .ReturnType}}
+    reply := &{{.ReturnType}}{}
+    err := c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, reply)
+    return reply, err
+    {{- else}}
+    return c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, nil)
+    {{- end}}
 }
 
 {{end -}}
@@ -230,8 +230,8 @@ func (g *goGenerator) generate(f *DefFile, gf *GeneratedFile, w io.Writer) error
 				ParamType:  m.RequestType,
 				ReturnType: m.ResponseType,
 			}
-			mtd.ParamType = g.fixTypeName(mtd.ParamType)
-			mtd.ReturnType = g.fixTypeName(mtd.ReturnType)
+			mtd.ParamType = g.fixTypeName(f.Package, mtd.ParamType)
+			mtd.ReturnType = g.fixTypeName(f.Package, mtd.ReturnType)
 			cls.Methods = append(cls.Methods, mtd)
 		}
 		ctx.Classes = append(ctx.Classes, cls)
@@ -256,9 +256,9 @@ func (g *goGenerator) generate(f *DefFile, gf *GeneratedFile, w io.Writer) error
 	return goSourceTemplate.Execute(w, &ctx)
 }
 
-func (g *goGenerator) fixTypeName(typeName string) string {
-	if g.internal && strings.HasPrefix(typeName, ".tbus.") {
-		return typeName[6:]
+func (g *goGenerator) fixTypeName(pkgName, typeName string) string {
+	if strings.HasPrefix(typeName, "."+pkgName+".") {
+		return typeName[len(pkgName)+2:]
 	} else if strings.HasPrefix(typeName, ".") {
 		return typeName[1:]
 	}

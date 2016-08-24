@@ -1,6 +1,9 @@
 ---
 format: hypermake.v0
 
+name: tbus
+description: TBus is Software Defined Bus for Things
+
 targets:
   toolchain:
     description: toolchain to build Go source code

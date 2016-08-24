@@ -114,8 +114,8 @@ const BusClassID uint32 = 0x0001
 
 // BusLogic defines the logic interface
 type BusLogic interface {
-	DeviceLogic
-	MsgRouter
+    DeviceLogic
+    MsgRouter
     Enumerate() (*BusEnumeration, error)
 }
 
@@ -129,17 +129,17 @@ type BusDev struct {
 func NewBusDev(logic BusLogic) *BusDev {
     d := &BusDev{Logic: logic}
     d.Info.ClassId = BusClassID
-	logic.SetDevice(d)
+    logic.SetDevice(d)
     return d
 }
 
 // SendMsg implements Device
 func (d *BusDev) SendMsg(msg *prot.Msg) (err error) {
-	if msg.Head.NeedRoute() {
-		return d.Logic.(MsgRouter).RouteMsg(msg)
-	}
+    if msg.Head.NeedRoute() {
+        return d.Logic.(MsgRouter).RouteMsg(msg)
+    }
     var reply proto.Message
-	switch msg.Body.Flag {
+    switch msg.Body.Flag {
     case 1: // Enumerate
         reply, err = d.Logic.Enumerate()
     default:
@@ -150,8 +150,8 @@ func (d *BusDev) SendMsg(msg *prot.Msg) (err error) {
 
 // SetDeviceID sets device id
 func (d *BusDev) SetDeviceID(id uint32) *BusDev {
-	d.Info.DeviceId = id
-	return d
+    d.Info.DeviceId = id
+    return d
 }
 
 // BusCtl is the device controller
@@ -161,21 +161,21 @@ type BusCtl struct {
 
 // NewBusCtl creates controller for Bus
 func NewBusCtl(master Master) *BusCtl {
-	c := &BusCtl{}
-	c.Master = master
-	return c
+    c := &BusCtl{}
+    c.Master = master
+    return c
 }
 
 // SetAddress sets routing address for target device
 func (c *BusCtl) SetAddress(addrs []uint8) *BusCtl {
-	c.Address = addrs
-	return c
+    c.Address = addrs
+    return c
 }
 
 // Enumerate wraps class Bus
 func (c *BusCtl) Enumerate() (*BusEnumeration, error) {
-	reply := &BusEnumeration{}
-	err := c.Invoke(1, nil, reply)
-	return reply, err
+    reply := &BusEnumeration{}
+    err := c.Invoke(1, nil, reply)
+    return reply, err
 }
 

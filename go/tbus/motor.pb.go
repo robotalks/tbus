@@ -94,7 +94,7 @@ const MotorClassID uint32 = 0x0020
 
 // MotorLogic defines the logic interface
 type MotorLogic interface {
-	DeviceLogic
+    DeviceLogic
     Start(*MotorDriveState) error
     Stop() error
     Brake(*MotorBrakeState) error
@@ -110,17 +110,17 @@ type MotorDev struct {
 func NewMotorDev(logic MotorLogic) *MotorDev {
     d := &MotorDev{Logic: logic}
     d.Info.ClassId = MotorClassID
-	logic.SetDevice(d)
+    logic.SetDevice(d)
     return d
 }
 
 // SendMsg implements Device
 func (d *MotorDev) SendMsg(msg *prot.Msg) (err error) {
-	if msg.Head.NeedRoute() {
-		return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
-	}
+    if msg.Head.NeedRoute() {
+        return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
+    }
     var reply proto.Message
-	switch msg.Body.Flag {
+    switch msg.Body.Flag {
     case 1: // Start
         params := &MotorDriveState{}
         err = proto.Unmarshal(msg.Body.Data, params)
@@ -143,8 +143,8 @@ func (d *MotorDev) SendMsg(msg *prot.Msg) (err error) {
 
 // SetDeviceID sets device id
 func (d *MotorDev) SetDeviceID(id uint32) *MotorDev {
-	d.Info.DeviceId = id
-	return d
+    d.Info.DeviceId = id
+    return d
 }
 
 // MotorCtl is the device controller
@@ -154,29 +154,29 @@ type MotorCtl struct {
 
 // NewMotorCtl creates controller for Motor
 func NewMotorCtl(master Master) *MotorCtl {
-	c := &MotorCtl{}
-	c.Master = master
-	return c
+    c := &MotorCtl{}
+    c.Master = master
+    return c
 }
 
 // SetAddress sets routing address for target device
 func (c *MotorCtl) SetAddress(addrs []uint8) *MotorCtl {
-	c.Address = addrs
-	return c
+    c.Address = addrs
+    return c
 }
 
 // Start wraps class Motor
 func (c *MotorCtl) Start(params *MotorDriveState) error {
-	return c.Invoke(1, params, nil)
+    return c.Invoke(1, params, nil)
 }
 
 // Stop wraps class Motor
 func (c *MotorCtl) Stop() error {
-	return c.Invoke(2, nil, nil)
+    return c.Invoke(2, nil, nil)
 }
 
 // Brake wraps class Motor
 func (c *MotorCtl) Brake(params *MotorBrakeState) error {
-	return c.Invoke(3, params, nil)
+    return c.Invoke(3, params, nil)
 }
 

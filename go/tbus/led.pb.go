@@ -54,7 +54,7 @@ const LEDClassID uint32 = 0x0010
 
 // LEDLogic defines the logic interface
 type LEDLogic interface {
-	DeviceLogic
+    DeviceLogic
     SetPowerState(*LEDPowerState) error
 }
 
@@ -68,17 +68,17 @@ type LEDDev struct {
 func NewLEDDev(logic LEDLogic) *LEDDev {
     d := &LEDDev{Logic: logic}
     d.Info.ClassId = LEDClassID
-	logic.SetDevice(d)
+    logic.SetDevice(d)
     return d
 }
 
 // SendMsg implements Device
 func (d *LEDDev) SendMsg(msg *prot.Msg) (err error) {
-	if msg.Head.NeedRoute() {
-		return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
-	}
+    if msg.Head.NeedRoute() {
+        return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
+    }
     var reply proto.Message
-	switch msg.Body.Flag {
+    switch msg.Body.Flag {
     case 1: // SetPowerState
         params := &LEDPowerState{}
         err = proto.Unmarshal(msg.Body.Data, params)
@@ -93,8 +93,8 @@ func (d *LEDDev) SendMsg(msg *prot.Msg) (err error) {
 
 // SetDeviceID sets device id
 func (d *LEDDev) SetDeviceID(id uint32) *LEDDev {
-	d.Info.DeviceId = id
-	return d
+    d.Info.DeviceId = id
+    return d
 }
 
 // LEDCtl is the device controller
@@ -104,19 +104,19 @@ type LEDCtl struct {
 
 // NewLEDCtl creates controller for LED
 func NewLEDCtl(master Master) *LEDCtl {
-	c := &LEDCtl{}
-	c.Master = master
-	return c
+    c := &LEDCtl{}
+    c.Master = master
+    return c
 }
 
 // SetAddress sets routing address for target device
 func (c *LEDCtl) SetAddress(addrs []uint8) *LEDCtl {
-	c.Address = addrs
-	return c
+    c.Address = addrs
+    return c
 }
 
 // SetPowerState wraps class LED
 func (c *LEDCtl) SetPowerState(params *LEDPowerState) error {
-	return c.Invoke(1, params, nil)
+    return c.Invoke(1, params, nil)
 }
 

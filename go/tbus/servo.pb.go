@@ -55,7 +55,7 @@ const ServoClassID uint32 = 0x0024
 
 // ServoLogic defines the logic interface
 type ServoLogic interface {
-	DeviceLogic
+    DeviceLogic
     SetPosition(*ServoPosition) error
     Stop() error
 }
@@ -70,17 +70,17 @@ type ServoDev struct {
 func NewServoDev(logic ServoLogic) *ServoDev {
     d := &ServoDev{Logic: logic}
     d.Info.ClassId = ServoClassID
-	logic.SetDevice(d)
+    logic.SetDevice(d)
     return d
 }
 
 // SendMsg implements Device
 func (d *ServoDev) SendMsg(msg *prot.Msg) (err error) {
-	if msg.Head.NeedRoute() {
-		return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
-	}
+    if msg.Head.NeedRoute() {
+        return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
+    }
     var reply proto.Message
-	switch msg.Body.Flag {
+    switch msg.Body.Flag {
     case 1: // SetPosition
         params := &ServoPosition{}
         err = proto.Unmarshal(msg.Body.Data, params)
@@ -97,8 +97,8 @@ func (d *ServoDev) SendMsg(msg *prot.Msg) (err error) {
 
 // SetDeviceID sets device id
 func (d *ServoDev) SetDeviceID(id uint32) *ServoDev {
-	d.Info.DeviceId = id
-	return d
+    d.Info.DeviceId = id
+    return d
 }
 
 // ServoCtl is the device controller
@@ -108,24 +108,24 @@ type ServoCtl struct {
 
 // NewServoCtl creates controller for Servo
 func NewServoCtl(master Master) *ServoCtl {
-	c := &ServoCtl{}
-	c.Master = master
-	return c
+    c := &ServoCtl{}
+    c.Master = master
+    return c
 }
 
 // SetAddress sets routing address for target device
 func (c *ServoCtl) SetAddress(addrs []uint8) *ServoCtl {
-	c.Address = addrs
-	return c
+    c.Address = addrs
+    return c
 }
 
 // SetPosition wraps class Servo
 func (c *ServoCtl) SetPosition(params *ServoPosition) error {
-	return c.Invoke(1, params, nil)
+    return c.Invoke(1, params, nil)
 }
 
 // Stop wraps class Servo
 func (c *ServoCtl) Stop() error {
-	return c.Invoke(2, nil, nil)
+    return c.Invoke(2, nil, nil)
 }
 
