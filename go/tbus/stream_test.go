@@ -4,13 +4,88 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+func dumpBytes(prefix string, data []byte) {
+	var line string
+	for i := 0; i < len(data); i++ {
+		if (i & 0xf) == 0 {
+			if i != 0 {
+				line += "\n"
+			}
+			line += fmt.Sprintf("%s %04x:", prefix, i)
+		}
+		line += fmt.Sprintf(" %02X", uint8(data[i]))
+	}
+	fmt.Fprintln(os.Stderr, line)
+}
+
+func dumpError(prefix string, n int, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s ERROR %d %v\n", prefix, n, err)
+	}
+}
+
+type listenerWrapper struct {
+	tag      string
+	listener net.Listener
+}
+
+func (l *listenerWrapper) Accept() (io.ReadWriteCloser, error) {
+	conn, err := l.listener.Accept()
+	return wrapConn(l.tag, conn, err)
+}
+
+func (l *listenerWrapper) Close() error {
+	return l.listener.Close()
+}
+
+func wrapListener(tag string, listener net.Listener) *listenerWrapper {
+	return &listenerWrapper{tag: tag, listener: listener}
+}
+
+type connWrapper struct {
+	tag  string
+	conn net.Conn
+}
+
+func (c *connWrapper) Read(b []byte) (n int, err error) {
+	n, err = c.conn.Read(b)
+	if err == nil {
+		dumpBytes(c.tag+"<", b[:n])
+	} else {
+		dumpError(c.tag+"<", n, err)
+	}
+	return
+}
+
+func (c *connWrapper) Write(b []byte) (n int, err error) {
+	dumpBytes(c.tag+">", b)
+	n, err = c.conn.Write(b)
+	if err != nil {
+		dumpError(c.tag+">", n, err)
+	}
+	return
+}
+
+func (c *connWrapper) Close() error {
+	return c.conn.Close()
+}
+
+func wrapConn(tag string, conn net.Conn, err error) (*connWrapper, error) {
+	return &connWrapper{tag: tag, conn: conn}, err
+}
+
 func testRemote(busDev *BusDev, testFn func(*LocalMaster)) {
+	fmt.Fprintln(os.Stderr, "testRemote Enter")
+	defer fmt.Fprintln(os.Stderr, "testRemote Leave")
+
 	var hostErr, portErr, devErr error
 	var wg sync.WaitGroup
 
@@ -23,30 +98,47 @@ func testRemote(busDev *BusDev, testFn func(*LocalMaster)) {
 	localAddr.Port = listener.Addr().(*net.TCPAddr).Port
 	So(err, ShouldBeNil)
 
-	host := NewRemoteDeviceHost(listener)
+	errCh := make(chan error, 3)
+
+	host := NewRemoteDeviceHost(wrapListener("H", listener))
 	go func() {
 		hostErr = host.Run()
+		dumpError("Host", 0, hostErr)
+		if hostErr != nil {
+			errCh <- hostErr
+		}
 		wg.Done()
 	}()
 
 	// device side
-	netPort := NewRemoteBusPort(busDev, func() (io.ReadWriteCloser, error) {
-		return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", localAddr.Port))
-	})
+	netPort := NewRemoteBusPort(busDev, DialerFunc(func() (io.ReadWriteCloser, error) {
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", localAddr.Port))
+		return wrapConn("P", conn, err)
+	}))
 	go func() {
 		portErr = netPort.Run()
+		dumpError("Port", 0, portErr)
+		if portErr != nil {
+			errCh <- portErr
+		}
 		wg.Done()
 	}()
 
 	// host side again
-	dev := <-host.AcceptChan()
-	master := NewLocalMaster(dev)
-	go func() {
-		devErr = dev.Run()
-		wg.Done()
-	}()
-	So(dev.DeviceInfo().Address, ShouldEqual, busDev.DeviceInfo().Address)
-	testFn(master)
+	select {
+	case dev := <-host.AcceptChan():
+		master := NewLocalMaster(dev)
+		master.InvocationTimeout = time.Second
+		go func() {
+			devErr = dev.Run()
+			dumpError("Master", 0, devErr)
+			wg.Done()
+		}()
+		So(dev.DeviceInfo().Address, ShouldEqual, busDev.DeviceInfo().Address)
+		testFn(master)
+	case err := <-errCh:
+		So(err, ShouldBeNil)
+	}
 
 	listener.Close()
 	netPort.Close()
@@ -89,7 +181,7 @@ func TestStreamDevice(t *testing.T) {
 
 			testRemote(NewBusDev(bus), func(master *LocalMaster) {
 				busctl := NewBusCtl(master)
-				enum, err := busctl.Enumerate()
+				enum, err := busctl.Enumerate().Wait()
 				So(err, ShouldBeNil)
 				So(enum, ShouldNotBeNil)
 				devs := enum.Devices
@@ -102,10 +194,10 @@ func TestStreamDevice(t *testing.T) {
 				// turn on led
 				ledctl := NewLEDCtl(master)
 				ledctl.SetAddress(devs[0].DeviceAddress())
-				err = ledctl.On()
+				err = ledctl.On().Wait()
 				So(err, ShouldBeNil)
 				So(ledLogic.on, ShouldBeTrue)
-				err = ledctl.Off()
+				err = ledctl.Off().Wait()
 				So(err, ShouldBeNil)
 				So(ledLogic.on, ShouldBeFalse)
 			})
@@ -116,11 +208,11 @@ func TestStreamDevice(t *testing.T) {
 			bus.Plug(NewLEDDev(&errorLED{}))
 			testRemote(NewBusDev(bus), func(master *LocalMaster) {
 				busctl := NewBusCtl(master)
-				enum, err := busctl.Enumerate()
+				enum, err := busctl.Enumerate().Wait()
 				So(err, ShouldBeNil)
 				ledctl := NewLEDCtl(master)
 				ledctl.SetAddress(enum.Devices[0].DeviceAddress())
-				err = ledctl.On()
+				err = ledctl.On().Wait()
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "errorLED")
 			})
@@ -131,7 +223,7 @@ func TestStreamDevice(t *testing.T) {
 				testRemote(NewBusDev(NewLocalBus()), func(master *LocalMaster) {
 					ledctl := NewLEDCtl(master)
 					ledctl.SetAddress([]uint8{100})
-					err := ledctl.On()
+					err := ledctl.On().Wait()
 					So(err, ShouldNotBeNil)
 					So(err.Error(), ShouldContainSubstring, "invalid address")
 				})
@@ -142,11 +234,11 @@ func TestStreamDevice(t *testing.T) {
 				bus.Plug(NewLEDDev(&testLED{}))
 				testRemote(NewBusDev(bus), func(master *LocalMaster) {
 					busctl := NewBusCtl(master)
-					enum, err := busctl.Enumerate()
+					enum, err := busctl.Enumerate().Wait()
 					So(err, ShouldBeNil)
 					ledctl := NewLEDCtl(master)
 					ledctl.SetAddress(append(enum.Devices[0].DeviceAddress(), uint8(10)))
-					err = ledctl.On()
+					err = ledctl.On().Wait()
 					So(err, ShouldNotBeNil)
 					So(err.Error(), ShouldContainSubstring, "route not supported")
 				})

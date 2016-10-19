@@ -19,18 +19,18 @@ describe('Protocol', function () {
 
     it('buildMsg', function () {
         var msg = new protocol.Encoder()
-            .messageId(100)
+            .messageId(0x80)
             .encodeBody(20, Uint8Array.from([1, 2, 3, 4]))
             .route([1, 1, 3])
             .buildMsg()
         expect(msg.head.flag).to.equal(0x10);
         expect(msg.head.prefix).to.equal(0xc2);
         expect(msg.head.addrs).to.eql([1, 1, 3]);
-        expect(msg.head.msgId).to.equal(100);
+        expect(msg.head.msgId).to.eql([0x80, 1]);
         expect(msg.head.bodyBytes).to.equal(5);
-        expect(msg.head.raw).to.have.lengthOf(7);
+        expect(msg.head.raw).to.have.lengthOf(9);
         expect(msg.head.rawPrefix).to.have.lengthOf(4);
-        expect(msg.head.rawHead).to.have.lengthOf(3);
+        expect(msg.head.rawHead).to.have.lengthOf(5);
         expect(msg.body.flag).to.equal(20);
         expect(msg.body.data).to.have.lengthOf(4);
         expect(msg.body.raw).to.have.lengthOf(5);
@@ -39,13 +39,15 @@ describe('Protocol', function () {
         expect(msg.head.raw[2]).to.eql(1);
         expect(msg.head.raw[3]).to.eql(3);
         expect(msg.head.raw[4]).to.eql(0x10);
-        expect(msg.head.raw[5]).to.eql(100);
+        expect(msg.head.raw[5]).to.eql(2);
         expect(msg.head.raw[6]).to.eql(5);
+        expect(msg.head.raw[7]).to.eql(0x80);
+        expect(msg.head.raw[8]).to.eql(1);
     });
 
     it('decode stream', function (done) {
         var buf = new protocol.Encoder()
-            .messageId(100)
+            .messageId(0x80)
             .encodeBody(20, Uint8Array.from([1, 2, 3, 4]))
             .route([1, 1, 3])
             .toBuffer();
@@ -74,20 +76,20 @@ describe('Protocol', function () {
             expect(collected[1].msg.head.prefix).to.equal(0xc2);
             expect(collected[1].msg.head.addrs).to.eql([1, 1, 3]);
             expect(collected[1].msg.head.flag).to.equal(0x10);
-            expect(collected[1].msg.head.msgId).to.equal(100);
+            expect(collected[1].msg.head.msgId).to.eql([0x80, 1]);
             expect(collected[1].msg.head.bodyBytes).to.equal(5);
             expect(collected[1].msg.head.rawPrefix).to.have.lengthOf(4);
-            expect(collected[1].msg.head.rawHead).to.have.lengthOf(3);
-            expect(collected[1].msg.head.raw).to.have.lengthOf(7);
+            expect(collected[1].msg.head.rawHead).to.have.lengthOf(5);
+            expect(collected[1].msg.head.raw).to.have.lengthOf(9);
             expect(collected[2].event).to.equal(protocol.EVT_MSG);
             expect(collected[2].msg.head.prefix).to.equal(0xc2);
             expect(collected[2].msg.head.addrs).to.eql([1, 1, 3]);
             expect(collected[2].msg.head.flag).to.equal(0x10);
-            expect(collected[2].msg.head.msgId).to.equal(100);
+            expect(collected[2].msg.head.msgId).to.eql([0x80, 1]);
             expect(collected[2].msg.head.bodyBytes).to.equal(5);
             expect(collected[2].msg.head.rawPrefix).to.have.lengthOf(4);
-            expect(collected[2].msg.head.rawHead).to.have.lengthOf(3);
-            expect(collected[2].msg.head.raw).to.have.lengthOf(7);
+            expect(collected[2].msg.head.rawHead).to.have.lengthOf(5);
+            expect(collected[2].msg.head.raw).to.have.lengthOf(9);
             expect(collected[2].msg.body.flag).to.equal(20);
             expect(collected[2].msg.body.data).to.have.lengthOf(4);
             expect(collected[2].msg.body.raw).to.have.lengthOf(5);

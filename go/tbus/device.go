@@ -2,8 +2,6 @@ package tbus
 
 import (
 	proto "github.com/golang/protobuf/proto"
-	empty "github.com/golang/protobuf/ptypes/empty"
-	prot "github.com/robotalks/tbus/go/tbus/protocol"
 )
 
 // DeviceBase implements basic device operations
@@ -30,32 +28,26 @@ func (d *DeviceBase) BusPort() BusPort {
 }
 
 // Reply write reply to bus
-func (d *DeviceBase) Reply(msgID uint32, reply proto.Message, err error) error {
+func (d *DeviceBase) Reply(msgID MsgID, reply proto.Message, err error) error {
 	return SendReply(d.busPort, msgID, reply, err)
 }
 
 // SendReply sends back reply
-func SendReply(sender MsgSender, msgID uint32, reply proto.Message, err error) error {
-	if sender == nil {
-		return ErrInvalidSender
+func SendReply(dispatcher MsgDispatcher, msgID MsgID, reply proto.Message, err error) error {
+	if dispatcher == nil {
+		return ErrInvalidDispatcher
 	}
 	flag := uint8(0)
 	if err != nil {
-		flag |= prot.BodyError
+		flag |= BodyError
 		reply = &Error{Message: err.Error()}
-	} else if reply == nil {
-		reply = &empty.Empty{}
 	}
 
-	encoded, err := proto.Marshal(reply)
-	if err != nil {
-		return err
-	}
-	msg, err := prot.EncodeAsMsg(nil, msgID, flag, encoded)
-	if err != nil {
-		return err
-	}
-	return sender.SendMsg(msg)
+	return BuildMsg().
+		MsgID(msgID).
+		EncodeBody(flag, reply).
+		Build().
+		Dispatch(dispatcher)
 }
 
 // LogicBase implements DeviceLogic

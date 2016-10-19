@@ -5,12 +5,9 @@ import (
 	"net"
 	"strings"
 	"sync"
-
-	proto "github.com/golang/protobuf/proto"
-	prot "github.com/robotalks/tbus/go/tbus/protocol"
 )
 
-// MsgStreamer read/write msg using stream
+// MsgStreamer write msg using stream
 type MsgStreamer struct {
 	Writer io.Writer
 	lock   sync.Mutex
@@ -21,26 +18,23 @@ func NewMsgStreamer(writer io.Writer) *MsgStreamer {
 	return &MsgStreamer{Writer: writer}
 }
 
-// SendMsg implements MsgSender
-func (s *MsgStreamer) SendMsg(msg *prot.Msg) (err error) {
+// DispatchMsg implements MsgDispatcher
+func (s *MsgStreamer) DispatchMsg(msg *Msg) (err error) {
 	s.lock.Lock()
-	_, err = s.Writer.Write(msg.Head.Raw)
-	if err == nil {
-		_, err = s.Writer.Write(msg.Body.Raw)
-	}
+	err = msg.EncodeTo(s.Writer)
 	s.lock.Unlock()
 	return
 }
 
-// DecodeStream decode msgs from stream and pipe to sender
-func DecodeStream(reader io.Reader, sender MsgSender) error {
+// DecodeStream decode msgs from stream and pipe to dispatcher
+func DecodeStream(reader io.Reader, dispatcher MsgDispatcher) error {
 	for {
-		msg, err := prot.Decode(reader)
+		msg, err := Decode(reader)
 		if err == io.EOF {
 			return nil
 		}
 		if err == nil {
-			err = sender.SendMsg(&msg)
+			err = dispatcher.DispatchMsg(&msg)
 		}
 		if err != nil {
 			return IgnoreClosingErr(err)
@@ -89,14 +83,7 @@ func (d *StreamDevice) AttachTo(busPort BusPort, addr uint8) {
 	d.Info.Address = uint32(addr)
 	if d.init && busPort != nil {
 		// during init send attach info to stream
-		encoded, _ := proto.Marshal(&d.Info)
-		msg, err := prot.EncodeAsMsg(nil, 0, 0, encoded)
-		if err == nil {
-			err = d.SendMsg(msg)
-		}
-		if err != nil {
-			d.initErr = err
-		}
+		d.initErr = BuildMsg().EncodeBody(0, &d.Info).Build().Dispatch(d)
 	}
 	d.init = false
 }
@@ -137,19 +124,55 @@ type RemoteDevice interface {
 	Run() error
 }
 
-// Dial is abstract remote connector
-type Dial func() (io.ReadWriteCloser, error)
+// Dialer is abstract remote connector
+type Dialer interface {
+	Dial() (io.ReadWriteCloser, error)
+}
+
+// DialerFunc is func implementation of Dialer
+type DialerFunc func() (io.ReadWriteCloser, error)
+
+// Dial implements Dialer
+func (d DialerFunc) Dial() (io.ReadWriteCloser, error) {
+	return d()
+}
+
+// Listener accepts connections
+type Listener interface {
+	io.Closer
+	Accept() (io.ReadWriteCloser, error)
+}
+
+// NetListenerWrapper wraps net.Listener
+type NetListenerWrapper struct {
+	Listener net.Listener
+}
+
+// Accept implements Listener
+func (l *NetListenerWrapper) Accept() (io.ReadWriteCloser, error) {
+	return l.Listener.Accept()
+}
+
+// Close implements Listener
+func (l *NetListenerWrapper) Close() error {
+	return l.Listener.Close()
+}
+
+// NetListener creates a wrapper for net.Listener
+func NetListener(listener net.Listener) *NetListenerWrapper {
+	return &NetListenerWrapper{Listener: listener}
+}
 
 // RemoteBusPort exposes a device over network
 type RemoteBusPort struct {
-	Dialer Dial
+	Dialer Dialer
 	Device Device
 
 	conn io.ReadWriteCloser
 }
 
 // NewRemoteBusPort creates a RemoteBusPort
-func NewRemoteBusPort(dev Device, dialer Dial) *RemoteBusPort {
+func NewRemoteBusPort(dev Device, dialer Dialer) *RemoteBusPort {
 	return &RemoteBusPort{Dialer: dialer, Device: dev}
 }
 
@@ -169,7 +192,7 @@ func (p *RemoteBusPort) Close() error {
 
 // Run connect to remote and host the device
 func (p *RemoteBusPort) Run() error {
-	conn, err := p.Dialer()
+	conn, err := p.Dialer.Dial()
 	if err == nil {
 		p.conn = conn
 		err = p.runConn()
@@ -183,21 +206,14 @@ func (p *RemoteBusPort) runConn() error {
 
 	// the first message is sending device info for bus attachment
 	info := p.Device.DeviceInfo()
-	encoded, err := proto.Marshal(&info)
+	err := BuildMsg().EncodeBody(0, &info).Build().EncodeTo(p.conn)
 	if err != nil {
-		return err
-	}
-	if _, err = prot.Encode(p.conn, nil, 0, 0, encoded); err != nil {
 		return err
 	}
 
 	// expect a bus attachment
-	msg, err := prot.Decode(p.conn)
-	if err != nil {
-		return err
-	}
 	info = DeviceInfo{}
-	if err = proto.Unmarshal(msg.Body.Data, &info); err != nil {
+	if _, err = DecodeAs(p.conn, &info); err != nil {
 		return err
 	}
 
@@ -211,12 +227,12 @@ func (p *RemoteBusPort) runConn() error {
 // RemoteDeviceHost accepts connections from RemoteBusPort
 // and creates StreamDevice for each connection.
 type RemoteDeviceHost struct {
-	Listener net.Listener
+	Listener Listener
 	acceptCh chan RemoteDevice
 }
 
 // NewRemoteDeviceHost creates a new remote device host
-func NewRemoteDeviceHost(listener net.Listener) *RemoteDeviceHost {
+func NewRemoteDeviceHost(listener Listener) *RemoteDeviceHost {
 	return &RemoteDeviceHost{
 		Listener: listener,
 		acceptCh: make(chan RemoteDevice),
@@ -235,17 +251,11 @@ func (h *RemoteDeviceHost) Run() error {
 		if err != nil {
 			return IgnoreClosingErr(err)
 		}
-		msg, err := prot.Decode(conn)
-		if err != nil {
+		info := &DeviceInfo{}
+		if _, err = DecodeAs(conn, info); err != nil {
 			conn.Close()
 		} else {
-			info := &DeviceInfo{}
-			err = proto.Unmarshal(msg.Body.Data, info)
-			if err != nil {
-				conn.Close()
-			} else {
-				h.acceptCh <- NewRemoteDevice(*info, conn)
-			}
+			h.acceptCh <- NewRemoteDevice(*info, conn)
 		}
 	}
 }

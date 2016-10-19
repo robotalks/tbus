@@ -22,9 +22,9 @@ var Bus = Class({
     },
 
     // implement BusPort
-    sendMsg: function (msg, done) {
+    dispatchMsg: function (msg, done) {
         if (this._device) {
-            this._device.busPort().sendMsg(msg, done);
+            this._device.busPort().dispatchMsg(msg, done);
         } else {
             done(new Error("no device associated"));
         }
@@ -65,7 +65,7 @@ var Bus = Class({
             msg.head.raw.writeUInt8(msg.head.prefix, 0);
             msg.head.rawPrefix = msg.head.raw.slice(0, msg.head.addrs.length + 1);
         }
-        device.sendMsg(msg, callback);
+        device.dispatchMsg(msg, callback);
         return this;
     },
 

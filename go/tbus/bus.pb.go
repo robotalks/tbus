@@ -23,7 +23,7 @@ It has these top-level messages:
 */
 package tbus
 
-import prot "github.com/robotalks/tbus/go/tbus/protocol"
+import "time"
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
@@ -133,8 +133,8 @@ func NewBusDev(logic BusLogic) *BusDev {
     return d
 }
 
-// SendMsg implements Device
-func (d *BusDev) SendMsg(msg *prot.Msg) (err error) {
+// DispatchMsg implements Device
+func (d *BusDev) DispatchMsg(msg *Msg) (err error) {
     if msg.Head.NeedRoute() {
         return d.Logic.(MsgRouter).RouteMsg(msg)
     }
@@ -172,10 +172,28 @@ func (c *BusCtl) SetAddress(addrs []uint8) *BusCtl {
     return c
 }
 
+// InvokeBusEnumerate represents the invocation of Bus.Enumerate
+type InvokeBusEnumerate struct {
+	MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *InvokeBusEnumerate) Timeout(dur time.Duration) *InvokeBusEnumerate {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *InvokeBusEnumerate) Wait() (*BusEnumeration, error) {
+	reply := &BusEnumeration{}
+	err := i.Result(reply)
+	return reply, err
+}
+
 // Enumerate wraps class Bus
-func (c *BusCtl) Enumerate() (*BusEnumeration, error) {
-    reply := &BusEnumeration{}
-    err := c.Invoke(1, nil, reply)
-    return reply, err
+func (c *BusCtl) Enumerate() *InvokeBusEnumerate {
+	invoke := &InvokeBusEnumerate{}
+	invoke.Invocation = c.Invoke(1, nil)
+	return invoke
 }
 

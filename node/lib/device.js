@@ -46,7 +46,7 @@ var Device = Class({
         return this;
     },
 
-    sendMsg: function (msg, done) {
+    dispatchMsg: function (msg, done) {
         setImmediate(done);
         var self = this;
         if (protocol.needRoute(msg)) {
@@ -100,9 +100,9 @@ var Device = Class({
             } else {
                 encoder.encodeProto(0, reply);
             }
-            this._busPort.sendMsg(encoder.buildMsg(), function (err) {
+            this._busPort.dispatchMsg(encoder.buildMsg(), function (err) {
                 if (err != null) {
-                    console.error('Device.reply error: %j, %j', err, this._info);
+                    console.error('Device.reply error: %j, %j\n%j', err, this._info, err.stack);
                 }
             }.bind(this));
         }

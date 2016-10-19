@@ -4,7 +4,6 @@ import (
 	"sort"
 	"sync"
 
-	prot "github.com/robotalks/tbus/go/tbus/protocol"
 	bitset "github.com/willf/bitset"
 )
 
@@ -62,7 +61,7 @@ func (b *LocalBus) Unplug(dev Device) error {
 }
 
 // RouteMsg implements BusLogic
-func (b *LocalBus) RouteMsg(msg *prot.Msg) error {
+func (b *LocalBus) RouteMsg(msg *Msg) error {
 	addr := msg.Head.Addrs[0]
 	b.lock.RLock()
 	device := b.devices[addr]
@@ -71,16 +70,7 @@ func (b *LocalBus) RouteMsg(msg *prot.Msg) error {
 		return SendReply(b.Device.BusPort(), msg.Head.MsgID, nil, ErrInvalidAddr)
 	}
 	msg.Head.Addrs = msg.Head.Addrs[1:]
-	if len(msg.Head.Addrs) == 0 {
-		msg.Head.Prefix = 0
-		msg.Head.Raw = msg.Head.Raw[2:]
-		msg.Head.RawPrefix = msg.Head.Raw[0:0]
-	} else {
-		msg.Head.Raw = msg.Head.Raw[1:]
-		msg.Head.Raw[0] = msg.Head.Prefix
-		msg.Head.RawPrefix = msg.Head.Raw[0 : len(msg.Head.Addrs)+1]
-	}
-	return device.SendMsg(msg)
+	return device.DispatchMsg(msg)
 }
 
 // DeviceInfoListByAddr is the alias of []*DeviceInfo
@@ -104,13 +94,13 @@ func (b *LocalBus) Enumerate() (*BusEnumeration, error) {
 	return enum, nil
 }
 
-func (b *LocalBus) sendToHost(msg *prot.Msg) error {
+func (b *LocalBus) sendToHost(msg *Msg) error {
 	if b.Device == nil {
 		return ErrNoAssocDevice
 	}
-	return b.Device.BusPort().SendMsg(msg)
+	return b.Device.BusPort().DispatchMsg(msg)
 }
 
-func (s *localBusPort) SendMsg(msg *prot.Msg) error {
+func (s *localBusPort) DispatchMsg(msg *Msg) error {
 	return s.bus.sendToHost(msg)
 }

@@ -32,7 +32,7 @@ var Master = Class({
         encoder
             .messageId(msgId)
             .encodeProto(index, params);
-        this._device.sendMsg(encoder.buildMsg(), function (err) {
+        this._device.dispatchMsg(encoder.buildMsg(), function (err) {
             if (err != null) {
                 this._unmapMsgId(msgId);
                 callback(err);
@@ -42,10 +42,15 @@ var Master = Class({
     },
 
     // implement BusPort
-    sendMsg: function (msg, done) {
-        var callback = this._msgMap[msg.head.msgId]
+    dispatchMsg: function (msg, done) {
+        var msgId = protocol.msgIdNumber(msg.head.msgId);
+        if (msgId == null) {
+            done(new Error("invalid msgId"));
+            return;
+        }
+        var callback = this._msgMap[msgId]
         if (callback != null) {
-            this._unmapMsgId(msg.head.msgId);
+            this._unmapMsgId(msgId);
             var err = protocol.decodeError(msg);
             if (err != null) {
                 callback(err);

@@ -79,7 +79,7 @@ targets:
     watches:
       - go/tbus
     cmds:
-      - go test ./go/tbus/...
+      - go test -v ./go/tbus/...
 
   test-node:
     description: test Node.js source code

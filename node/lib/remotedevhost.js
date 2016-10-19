@@ -23,8 +23,7 @@ var RemoteDevice = Class(EventEmitter, {
         this._busPort = busPort;
         this._info.address = addr;
         if (this._initialAttach) {
-            this.sendMsg(new protocol.Encoder()
-                .messageId(0)
+            this.dispatchMsg(new protocol.Encoder()
                 .encodeProto(0, new DeviceInfo().fromDevice(this))
                 .buildMsg(), this._handleErr.bind(this));
             delete this._initialAttach;
@@ -57,7 +56,7 @@ var RemoteDevice = Class(EventEmitter, {
         return this;
     },
 
-    sendMsg: function (msg, done) {
+    dispatchMsg: function (msg, done) {
         if (this._conn != null) {
             this._conn.write(Buffer.concat([msg.head.raw, msg.body.raw]), null, done);
         } else {
@@ -96,7 +95,7 @@ var RemoteDevice = Class(EventEmitter, {
             delete this._init;
             this._host._newDevice(this);
         } else if (this._busPort) {
-            this._busPort.sendMsg(msg, this._handleErr.bind(this));
+            this._busPort.dispatchMsg(msg, this._handleErr.bind(this));
         }
     },
 

@@ -54,7 +54,7 @@ const (
 	goGenFileSuffix = ".pb.go"
 	goBadImport     = "\nimport _ \"tbus/common\"\n"
 
-	goDecls = `import prot "github.com/robotalks/tbus/go/tbus/protocol"
+	goDecls = `import "time"
 {{- range .Imports}}
 import {{with .Alias}}{{.}} {{end}}"{{.Pkg}}"
 {{- end}}
@@ -93,8 +93,8 @@ func New{{.ClassName}}Dev(logic {{.ClassName}}Logic) *{{.ClassName}}Dev {
     return d
 }
 
-// SendMsg implements Device
-func (d *{{.ClassName}}Dev) SendMsg(msg *prot.Msg) (err error) {
+// DispatchMsg implements Device
+func (d *{{.ClassName}}Dev) DispatchMsg(msg *{{$tbus}}Msg) (err error) {
     if msg.Head.NeedRoute() {
 {{- if .Router}}
         return d.Logic.({{$tbus}}MsgRouter).RouteMsg(msg)
@@ -108,7 +108,7 @@ func (d *{{.ClassName}}Dev) SendMsg(msg *prot.Msg) (err error) {
     case {{.Index}}: // {{.Name}}
         {{- if .ParamType}}
         params := &{{.ParamType}}{}
-        err = proto.Unmarshal(msg.Body.Data, params)
+        err = msg.Body.Decode(params)
         if err == nil {
             {{if .ReturnType}}reply, {{end}}err = d.Logic.{{.Symbol}}(params)
         }
@@ -147,15 +147,33 @@ func (c *{{.ClassName}}Ctl) SetAddress(addrs []uint8) *{{.ClassName}}Ctl {
 }
 
 {{$class := . }}{{range .Methods -}}
+// Invoke{{$class.ClassName}}{{.Symbol}} represents the invocation of {{$class.ClassName}}.{{.Symbol}}
+type Invoke{{$class.ClassName}}{{.Symbol}} struct {
+	{{$tbus}}MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *Invoke{{$class.ClassName}}{{.Symbol}}) Timeout(dur time.Duration) *Invoke{{$class.ClassName}}{{.Symbol}} {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *Invoke{{$class.ClassName}}{{.Symbol}}) Wait() {{if .ReturnType}}(*{{.ReturnType}}, error){{else}}error{{end}} {
+	{{- if .ReturnType}}
+	reply := &{{.ReturnType}}{}
+	err := i.Result(reply)
+	return reply, err
+	{{- else}}
+	return i.Result(nil)
+	{{- end}}
+}
+
 // {{.Symbol}} wraps class {{$class.ClassName}}
-func (c *{{$class.ClassName}}Ctl) {{.Symbol}}({{with .ParamType}}params *{{.}}{{end}}) {{if .ReturnType}}(*{{.ReturnType}}, error){{else}}error{{end}} {
-    {{- if .ReturnType}}
-    reply := &{{.ReturnType}}{}
-    err := c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, reply)
-    return reply, err
-    {{- else}}
-    return c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}}, nil)
-    {{- end}}
+func (c *{{$class.ClassName}}Ctl) {{.Symbol}}({{with .ParamType}}params *{{.}}{{end}}) *Invoke{{$class.ClassName}}{{.Symbol}} {
+	invoke := &Invoke{{$class.ClassName}}{{.Symbol}}{}
+	invoke.Invocation = c.Invoke({{.Index}}, {{if .ParamType}}params{{else}}nil{{end}})
+	return invoke
 }
 
 {{end -}}

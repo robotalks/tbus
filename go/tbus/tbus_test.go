@@ -11,7 +11,7 @@ func TestBasicBus(t *testing.T) {
 		Convey("enumeration", func() {
 			master := NewLocalMaster(NewBusDev(NewLocalBus()))
 			busctl := NewBusCtl(master)
-			enum, err := busctl.Enumerate()
+			enum, err := busctl.Enumerate().Wait()
 			So(err, ShouldBeNil)
 			So(enum, ShouldNotBeNil)
 			devs := enum.Devices
@@ -29,7 +29,7 @@ func TestBasicBus(t *testing.T) {
 			bus1.Plug(busDev2.SetDeviceID(2))
 			So(busDev2.DeviceInfo().Address, ShouldNotEqual, 0)
 			busctl := NewBusCtl(master)
-			enum, err := busctl.Enumerate()
+			enum, err := busctl.Enumerate().Wait()
 			So(err, ShouldBeNil)
 			So(enum, ShouldNotBeNil)
 			So(enum.Devices, ShouldHaveLength, 1)
@@ -37,7 +37,8 @@ func TestBasicBus(t *testing.T) {
 			So(enum.Devices[0].DeviceId, ShouldEqual, 1)
 			enum, err = busctl.
 				SetAddress(DeviceAddress(busDev1)).
-				Enumerate()
+				Enumerate().
+				Wait()
 			So(err, ShouldBeNil)
 			So(enum, ShouldNotBeNil)
 			So(enum.Devices, ShouldHaveLength, 1)
@@ -45,7 +46,8 @@ func TestBasicBus(t *testing.T) {
 			So(enum.Devices[0].DeviceId, ShouldEqual, 2)
 			enum, err = busctl.
 				SetAddress(DeviceAddress(busDev1, busDev2)).
-				Enumerate()
+				Enumerate().
+				Wait()
 			So(err, ShouldBeNil)
 			So(enum, ShouldNotBeNil)
 			So(enum.Devices, ShouldBeEmpty)

@@ -74,6 +74,24 @@ var StreamDecoder = Class({
         this._recvLen ++;
     },
 
+    startRecv: function (size) {
+        this._expLen = size;
+        this._recv = new Buffer(0);
+    },
+
+    recvBytes: function () {
+        var size = this._buf.length;
+        if (this._recvLen + size > this._expLen) {
+            size = this._expLen - this._recvLen;
+            this._recv = Buffer.concat([this._recv, this._buf.slice(0, size)]);
+        } else {
+            this._recv = Buffer.concat([this._recv, this._buf]);
+        }
+        this._buf = this._buf.slice(size);
+        this._recvLen += size;
+        return this.allRecv();
+    },
+
     transit: function (state) {
         this._log('transit', { from: this._state, to: state });
         this._state = state;
@@ -168,8 +186,9 @@ var Decoder = Class(StreamDecoder, {
 
     _enterFlags: function () {
         delete this._flag;
-        delete this._msgId;
+        delete this._msgIdBytes;
         delete this._bodyBytes;
+        delete this._msgId;
         delete this._body;
         this._headBytes = 0;
         this._head = this._prefix.slice(0);
@@ -182,18 +201,18 @@ var Decoder = Class(StreamDecoder, {
         if ((this._flag & FORMAT_MASK) != FORMAT) {
             this.done(new Error('unsupported protocol'));
         } else {
-            this.transit('MsgId');
+            this.transit('MsgIdBytes');
         }
     },
 
-    _enterMsgId: function () {
+    _enterMsgIdBytes: function () {
         this._expLen = 1;
-        this._msgId = 0;
+        this._msgIdBytes = 0;
     },
 
-    _parseMsgId: function () {
+    _parseMsgIdBytes: function () {
         this._head.push(this._buf[0]);
-        this._msgId |= this.decode7Bit();
+        this._msgIdBytes |= this.decode7Bit();
         this._headBytes ++;
         if (this.allRecv()) {
             this.transit('BodySize');
@@ -211,6 +230,27 @@ var Decoder = Class(StreamDecoder, {
         this._bodyBytes |= this.decode7Bit();
         this._headBytes ++;
         if (this.allRecv()) {
+            if (this._msgIdBytes > 0) {
+                this.transit('MsgId');
+            } else {
+                this._report(EVT_HEAD);
+                if (this._bodyBytes > 0) {
+                    this.transit('Body');
+                } else {
+                    this.reset();
+                }
+            }
+        }
+    },
+
+    _enterMsgId: function() {
+        this.startRecv(this._msgIdBytes);
+    },
+
+    _parseMsgId: function() {
+        if (this.recvBytes()) {
+            this._msgId = Array.from(this._recv);
+            this._head = this._head.concat(this._msgId);
             this._report(EVT_HEAD);
             if (this._bodyBytes > 0) {
                 this.transit('Body');
@@ -221,21 +261,12 @@ var Decoder = Class(StreamDecoder, {
     },
 
     _enterBody: function () {
-        this._expLen = this._bodyBytes;
-        this._body = new Buffer(0);
+        this.startRecv(this._bodyBytes);
     },
 
     _parseBody: function () {
-        var size = this._buf.length;
-        if (this._recvLen + size > this._expLen) {
-            size = this._expLen - this._recvLen;
-            this._body = Buffer.concat([this._body, this._buf.slice(0, size)]);
-        } else {
-            this._body = Buffer.concat([this._body, this._buf]);
-        }
-        this._buf = this._buf.slice(size);
-        this._recvLen += size;
-        if (this.allRecv()) {
+        if (this.recvBytes()) {
+            this._body = this._recv;
             this._report(EVT_MSG);
             this.reset();
         }
@@ -326,7 +357,18 @@ var Encoder = Class({
     },
 
     messageId: function (msgId) {
-        this._msgId = msgId;
+        if (typeof(msgId) == 'number') {
+            this._msgId = [];
+            encode7Bit(this._msgId, msgId);
+        } else if (msgId instanceof Uint8Array) {
+            this._msgId = Array.from(msgId);
+        } else if (Buffer.isBuffer(msgId)) {
+            this._msgId = Array.from(msgId);
+        } else if (Array.isArray(msgId)) {
+            this._msgId = msgId;
+        } else {
+            throw new Error("invalid msgId type");
+        }
         return this;
     },
 
@@ -386,9 +428,11 @@ var Encoder = Class({
         }
         var head = [this._flag];
         msg.head.bodyBytes = this._body ? this._body.length : 0;
-        encode7Bit(head, this._msgId);
+        var msgIdBytes = msg.head.msgId ? msg.head.msgId.length : 0;
+        encode7Bit(head, msgIdBytes);
         encode7Bit(head, msg.head.bodyBytes);
         headBytes += head.length;
+        headBytes += msgIdBytes;
 
         msg.head.raw = new Buffer(headBytes);
         var off = 0;
@@ -400,6 +444,11 @@ var Encoder = Class({
         }
         for (var i = 0; i < head.length; i ++) {
             msg.head.raw.writeUInt8(head[i], off++);
+        }
+        if (msg.head.msgId) {
+            for (var i = 0; i < msg.head.msgId.length; i ++) {
+                msg.head.raw.writeUInt8(msg.head.msgId[i], off++);
+            }
         }
         if (msg.head.addrs) {
             msg.head.rawPrefix = msg.head.raw.slice(0, msg.head.addrs.length + 1);
@@ -421,6 +470,21 @@ var Encoder = Class({
         return Buffer.concat([msg.head.raw, msg.body.raw]);
     }
 });
+
+function msgIdNumber(msgId) {
+    if (!Array.isArray(msgId)) {
+        return null;
+    }
+    var v = 0;
+    for (var i = 0; i < msgId.length; i ++) {
+        var b = msgId[i];
+        v |= (b & 0x7f) << (7 * i);
+        if ((b & 0x80) == 0) {
+            break;
+        }
+    }
+    return v;
+}
 
 function decodeError(msg) {
     if (msg.body.flag & 0x80) {
@@ -447,6 +511,7 @@ module.exports = {
     Decoder: Decoder,
     DecodeStream: DecodeStream,
 
+    msgIdNumber: msgIdNumber,
     decodeError: decodeError,
     needRoute: needRoute,
     setLogger: setLogger

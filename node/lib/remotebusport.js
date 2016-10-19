@@ -26,7 +26,7 @@ var RemoteBusPort = Class(EventEmitter, {
         return this._connection != null;
     },
 
-    sendMsg: function (msg, done) {
+    dispatchMsg: function (msg, done) {
         if (this._connection != null) {
             this._connection.write(Buffer.concat([msg.head.raw, msg.body.raw]), null, done);
         } else {
@@ -56,8 +56,7 @@ var RemoteBusPort = Class(EventEmitter, {
 
             this._attaching = true;
             var info = new DeviceInfo().fromDevice(this._device);
-            this.sendMsg(new protocol.Encoder()
-                .messageId(0)
+            this.dispatchMsg(new protocol.Encoder()
                 .encodeProto(0, info)
                 .buildMsg(), this._onError.bind(this));
         }
@@ -90,7 +89,7 @@ var RemoteBusPort = Class(EventEmitter, {
             delete this._attaching;
             this.emit('attached', info.getAddress());
         } else {
-            this._device.sendMsg(msg, this._onError.bind(this));
+            this._device.dispatchMsg(msg, this._onError.bind(this));
         }
     }
 });

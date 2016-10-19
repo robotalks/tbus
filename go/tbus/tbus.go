@@ -6,7 +6,6 @@ import (
 	"time"
 
 	proto "github.com/golang/protobuf/proto"
-	prot "github.com/robotalks/tbus/go/tbus/protocol"
 )
 
 var (
@@ -18,34 +17,36 @@ var (
 	ErrRouteNotSupport = fmt.Errorf("route not supported")
 	// ErrRecvAborted indicates the receiving is cancelled
 	ErrRecvAborted = fmt.Errorf("receiving aborted")
+	// ErrRecvTimeout indicates the receiving is timed out
+	ErrRecvTimeout = fmt.Errorf("receiving timed out")
 	// ErrRecvEnd indicates the receiving is ended
 	ErrRecvEnd = io.EOF
 	// ErrAddrNotAvail indicates no more address can be allocated
 	ErrAddrNotAvail = fmt.Errorf("address not available")
 	// ErrNoAssocDevice indicates a logic is not associated with device
 	ErrNoAssocDevice = fmt.Errorf("logic not associated with device")
-	// ErrInvalidSender indicates sender is unavailable
-	ErrInvalidSender = fmt.Errorf("sender not available")
+	// ErrInvalidDispatcher indicates dispatcher is unavailable
+	ErrInvalidDispatcher = fmt.Errorf("dispatcher not available")
 )
 
 // MsgReceiver provides a message chan for read
 type MsgReceiver interface {
-	MsgChan() <-chan prot.Msg
+	MsgChan() <-chan Msg
 }
 
-// MsgSender writes a message
-type MsgSender interface {
-	SendMsg(*prot.Msg) error
+// MsgDispatcher dispatches a message to target
+type MsgDispatcher interface {
+	DispatchMsg(*Msg) error
 }
 
 // MsgRouter is able to route a message
 type MsgRouter interface {
-	RouteMsg(*prot.Msg) error
+	RouteMsg(*Msg) error
 }
 
 // BusPort is the device side of the bus
 type BusPort interface {
-	MsgSender
+	MsgDispatcher
 }
 
 // Bus defines a bus instance
@@ -56,7 +57,7 @@ type Bus interface {
 
 // Device defines a device instance
 type Device interface {
-	MsgSender
+	MsgDispatcher
 	DeviceInfo() DeviceInfo
 	AttachTo(BusPort, uint8)
 	BusPort() BusPort
@@ -69,80 +70,14 @@ type DeviceLogic interface {
 
 // Master is the bus master
 type Master interface {
-	Invoke(method uint8, params proto.Message, addrs []uint8) (Invocation, error)
+	Invoke(method uint8, params proto.Message, addrs []uint8) Invocation
 }
 
 // Invocation represents the result of method invocation
 type Invocation interface {
-	MsgReceiver
-	MessageID() uint32
+	Recv() (MsgReceiver, error)
+	MsgID() MsgID
+	Timeout(time.Duration) Invocation
+	Result(proto.Message) error
 	Ignore()
-}
-
-// MsgReader reads a message from a receiver
-type MsgReader struct {
-	Timeout    time.Duration
-	CancelChan <-chan struct{}
-}
-
-// SetTimeout sets the timeout value
-func (r *MsgReader) SetTimeout(timeout time.Duration) *MsgReader {
-	r.Timeout = timeout
-	return r
-}
-
-// SetCancelChan sets the cancellation chan
-func (r *MsgReader) SetCancelChan(ch <-chan struct{}) *MsgReader {
-	r.CancelChan = ch
-	return r
-}
-
-// ReadMsg reads a message
-func (r *MsgReader) ReadMsg(recv MsgReceiver) (*prot.Msg, error) {
-	var msg prot.Msg
-	var ok bool
-	if r.Timeout == 0 {
-		if r.CancelChan != nil {
-			select {
-			case <-r.CancelChan:
-				return nil, ErrRecvAborted
-			case msg, ok = <-recv.MsgChan():
-				break
-			}
-		} else {
-			msg, ok = <-recv.MsgChan()
-		}
-	} else if r.CancelChan != nil {
-		select {
-		case <-time.After(r.Timeout):
-			return nil, nil
-		case _, _ = <-r.CancelChan:
-			return nil, ErrRecvAborted
-		case msg, ok = <-recv.MsgChan():
-			break
-		}
-	}
-	if !ok {
-		return nil, ErrRecvEnd
-	}
-	return &msg, nil
-}
-
-// ReadReply reads message and decode into reply
-func (r *MsgReader) ReadReply(recv MsgReceiver, reply proto.Message) error {
-	msg, err := r.ReadMsg(recv)
-	if err != nil {
-		return err
-	}
-	if (msg.Body.Flag & prot.BodyError) != 0 {
-		replyErr := &Error{}
-		if err = proto.Unmarshal(msg.Body.Data, replyErr); err != nil {
-			return err
-		}
-		return replyErr
-	}
-	if reply != nil {
-		err = proto.Unmarshal(msg.Body.Data, reply)
-	}
-	return err
 }

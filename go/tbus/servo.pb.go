@@ -4,7 +4,7 @@
 
 package tbus
 
-import prot "github.com/robotalks/tbus/go/tbus/protocol"
+import "time"
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
@@ -74,8 +74,8 @@ func NewServoDev(logic ServoLogic) *ServoDev {
     return d
 }
 
-// SendMsg implements Device
-func (d *ServoDev) SendMsg(msg *prot.Msg) (err error) {
+// DispatchMsg implements Device
+func (d *ServoDev) DispatchMsg(msg *Msg) (err error) {
     if msg.Head.NeedRoute() {
         return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
     }
@@ -83,7 +83,7 @@ func (d *ServoDev) SendMsg(msg *prot.Msg) (err error) {
     switch msg.Body.Flag {
     case 1: // SetPosition
         params := &ServoPosition{}
-        err = proto.Unmarshal(msg.Body.Data, params)
+        err = msg.Body.Decode(params)
         if err == nil {
             err = d.Logic.SetPosition(params)
         }
@@ -119,13 +119,49 @@ func (c *ServoCtl) SetAddress(addrs []uint8) *ServoCtl {
     return c
 }
 
+// InvokeServoSetPosition represents the invocation of Servo.SetPosition
+type InvokeServoSetPosition struct {
+	MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *InvokeServoSetPosition) Timeout(dur time.Duration) *InvokeServoSetPosition {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *InvokeServoSetPosition) Wait() error {
+	return i.Result(nil)
+}
+
 // SetPosition wraps class Servo
-func (c *ServoCtl) SetPosition(params *ServoPosition) error {
-    return c.Invoke(1, params, nil)
+func (c *ServoCtl) SetPosition(params *ServoPosition) *InvokeServoSetPosition {
+	invoke := &InvokeServoSetPosition{}
+	invoke.Invocation = c.Invoke(1, params)
+	return invoke
+}
+
+// InvokeServoStop represents the invocation of Servo.Stop
+type InvokeServoStop struct {
+	MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *InvokeServoStop) Timeout(dur time.Duration) *InvokeServoStop {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *InvokeServoStop) Wait() error {
+	return i.Result(nil)
 }
 
 // Stop wraps class Servo
-func (c *ServoCtl) Stop() error {
-    return c.Invoke(2, nil, nil)
+func (c *ServoCtl) Stop() *InvokeServoStop {
+	invoke := &InvokeServoStop{}
+	invoke.Invocation = c.Invoke(2, nil)
+	return invoke
 }
 

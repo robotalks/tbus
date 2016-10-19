@@ -4,7 +4,7 @@
 
 package tbus
 
-import prot "github.com/robotalks/tbus/go/tbus/protocol"
+import "time"
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
@@ -72,8 +72,8 @@ func NewLEDDev(logic LEDLogic) *LEDDev {
     return d
 }
 
-// SendMsg implements Device
-func (d *LEDDev) SendMsg(msg *prot.Msg) (err error) {
+// DispatchMsg implements Device
+func (d *LEDDev) DispatchMsg(msg *Msg) (err error) {
     if msg.Head.NeedRoute() {
         return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
     }
@@ -81,7 +81,7 @@ func (d *LEDDev) SendMsg(msg *prot.Msg) (err error) {
     switch msg.Body.Flag {
     case 1: // SetPowerState
         params := &LEDPowerState{}
-        err = proto.Unmarshal(msg.Body.Data, params)
+        err = msg.Body.Decode(params)
         if err == nil {
             err = d.Logic.SetPowerState(params)
         }
@@ -115,8 +115,26 @@ func (c *LEDCtl) SetAddress(addrs []uint8) *LEDCtl {
     return c
 }
 
+// InvokeLEDSetPowerState represents the invocation of LED.SetPowerState
+type InvokeLEDSetPowerState struct {
+	MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *InvokeLEDSetPowerState) Timeout(dur time.Duration) *InvokeLEDSetPowerState {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *InvokeLEDSetPowerState) Wait() error {
+	return i.Result(nil)
+}
+
 // SetPowerState wraps class LED
-func (c *LEDCtl) SetPowerState(params *LEDPowerState) error {
-    return c.Invoke(1, params, nil)
+func (c *LEDCtl) SetPowerState(params *LEDPowerState) *InvokeLEDSetPowerState {
+	invoke := &InvokeLEDSetPowerState{}
+	invoke.Invocation = c.Invoke(1, params)
+	return invoke
 }
 

@@ -4,7 +4,7 @@
 
 package tbus
 
-import prot "github.com/robotalks/tbus/go/tbus/protocol"
+import "time"
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
@@ -114,8 +114,8 @@ func NewMotorDev(logic MotorLogic) *MotorDev {
     return d
 }
 
-// SendMsg implements Device
-func (d *MotorDev) SendMsg(msg *prot.Msg) (err error) {
+// DispatchMsg implements Device
+func (d *MotorDev) DispatchMsg(msg *Msg) (err error) {
     if msg.Head.NeedRoute() {
         return d.Reply(msg.Head.MsgID, nil, ErrRouteNotSupport)
     }
@@ -123,7 +123,7 @@ func (d *MotorDev) SendMsg(msg *prot.Msg) (err error) {
     switch msg.Body.Flag {
     case 1: // Start
         params := &MotorDriveState{}
-        err = proto.Unmarshal(msg.Body.Data, params)
+        err = msg.Body.Decode(params)
         if err == nil {
             err = d.Logic.Start(params)
         }
@@ -131,7 +131,7 @@ func (d *MotorDev) SendMsg(msg *prot.Msg) (err error) {
         err = d.Logic.Stop()
     case 3: // Brake
         params := &MotorBrakeState{}
-        err = proto.Unmarshal(msg.Body.Data, params)
+        err = msg.Body.Decode(params)
         if err == nil {
             err = d.Logic.Brake(params)
         }
@@ -165,18 +165,72 @@ func (c *MotorCtl) SetAddress(addrs []uint8) *MotorCtl {
     return c
 }
 
+// InvokeMotorStart represents the invocation of Motor.Start
+type InvokeMotorStart struct {
+	MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *InvokeMotorStart) Timeout(dur time.Duration) *InvokeMotorStart {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *InvokeMotorStart) Wait() error {
+	return i.Result(nil)
+}
+
 // Start wraps class Motor
-func (c *MotorCtl) Start(params *MotorDriveState) error {
-    return c.Invoke(1, params, nil)
+func (c *MotorCtl) Start(params *MotorDriveState) *InvokeMotorStart {
+	invoke := &InvokeMotorStart{}
+	invoke.Invocation = c.Invoke(1, params)
+	return invoke
+}
+
+// InvokeMotorStop represents the invocation of Motor.Stop
+type InvokeMotorStop struct {
+	MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *InvokeMotorStop) Timeout(dur time.Duration) *InvokeMotorStop {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *InvokeMotorStop) Wait() error {
+	return i.Result(nil)
 }
 
 // Stop wraps class Motor
-func (c *MotorCtl) Stop() error {
-    return c.Invoke(2, nil, nil)
+func (c *MotorCtl) Stop() *InvokeMotorStop {
+	invoke := &InvokeMotorStop{}
+	invoke.Invocation = c.Invoke(2, nil)
+	return invoke
+}
+
+// InvokeMotorBrake represents the invocation of Motor.Brake
+type InvokeMotorBrake struct {
+	MethodInvocation
+}
+
+// Timeout implements Invocation
+func (i *InvokeMotorBrake) Timeout(dur time.Duration) *InvokeMotorBrake {
+	i.Invocation.Timeout(dur)
+	return i
+}
+
+// Wait waits and retrieves the result
+func (i *InvokeMotorBrake) Wait() error {
+	return i.Result(nil)
 }
 
 // Brake wraps class Motor
-func (c *MotorCtl) Brake(params *MotorBrakeState) error {
-    return c.Invoke(3, params, nil)
+func (c *MotorCtl) Brake(params *MotorBrakeState) *InvokeMotorBrake {
+	invoke := &InvokeMotorBrake{}
+	invoke.Invocation = c.Invoke(3, params)
+	return invoke
 }
 
