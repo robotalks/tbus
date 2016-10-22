@@ -101,15 +101,32 @@ func (p *protocParser) Parse(reader io.Reader) (*Definition, error) {
 					return nil, fmt.Errorf("method %s.%s: option index invalid: %v",
 						svc.GetName(), m.GetName(), err)
 				}
-				method := &Method{Index: val, Name: m.GetName()}
-				if t := m.GetInputType(); t != emptyType {
-					method.RequestType = t
+				if m.GetClientStreaming() {
+					return nil, fmt.Errorf("method %s.%s: client streaming not supported",
+						svc.GetName(), m.GetName())
 				}
-				if t := m.GetOutputType(); t != emptyType {
-					method.ResponseType = t
-				}
-				if err = dev.AddMethod(method); err != nil {
-					return nil, err
+
+				if m.GetServerStreaming() {
+					// this is an event channel
+					if m.GetInputType() != emptyType {
+						return nil, fmt.Errorf("event channel %s.%s: input %s invalid, must be "+emptyType[1:],
+							svc.GetName(), m.GetName(), m.GetInputType())
+					}
+					eventChn := &EventChannel{Index: val, Name: m.GetName(), EventType: m.GetOutputType()}
+					if err = dev.AddEventChannel(eventChn); err != nil {
+						return nil, err
+					}
+				} else {
+					method := &Method{Index: val, Name: m.GetName()}
+					if t := m.GetInputType(); t != emptyType {
+						method.RequestType = t
+					}
+					if t := m.GetOutputType(); t != emptyType {
+						method.ResponseType = t
+					}
+					if err = dev.AddMethod(method); err != nil {
+						return nil, err
+					}
 				}
 			}
 			defFile.Devices = append(defFile.Devices, dev)

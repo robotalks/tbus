@@ -20,9 +20,23 @@ const (
 
 	FormatMask uint8 = 0xf0
 	Format     uint8 = 0x10 // rev 1, protobuf encoded
+	EventMask  uint8 = 0x01
 
 	BodyError uint8 = 0x80 // body contains error
 )
+
+// RouteAddr is routable address
+type RouteAddr []uint8
+
+// RouteWith build RouteAddr from multiple addresses
+func RouteWith(addrs ...uint8) RouteAddr {
+	return RouteAddr(addrs)
+}
+
+// Prefix prefixes address to current address
+func (a RouteAddr) Prefix(addrs ...uint8) RouteAddr {
+	return append(addrs, a...)
+}
 
 // MsgID is message ID
 type MsgID []byte
@@ -55,7 +69,7 @@ func (id MsgID) VarInt() (uint32, error) {
 // MsgHead is message head
 type MsgHead struct {
 	Prefix    uint8
-	Addrs     []uint8
+	Addrs     RouteAddr
 	Flag      uint8
 	BodyBytes uint32
 	MsgID     MsgID
@@ -64,6 +78,11 @@ type MsgHead struct {
 // NeedRoute indicates the message contains routing addresses
 func (h *MsgHead) NeedRoute() bool {
 	return len(h.Addrs) > 0
+}
+
+// IsEvent indicates this is an event from device to master
+func (h *MsgHead) IsEvent() bool {
+	return (h.Flag & EventMask) != 0
 }
 
 // EncodeTo encodes header to a writer
@@ -240,7 +259,7 @@ func BuildMsg() *MsgBuilder {
 }
 
 // RouteTo specifies the routing addresses
-func (b *MsgBuilder) RouteTo(addrs ...uint8) *MsgBuilder {
+func (b *MsgBuilder) RouteTo(addrs RouteAddr) *MsgBuilder {
 	b.msg.Head.Addrs = addrs
 	return b
 }
@@ -273,6 +292,14 @@ func (b *MsgBuilder) EncodeBody(flag uint8, val proto.Message) *MsgBuilder {
 		panic(err)
 	}
 	return b.Body(flag, encoded)
+}
+
+// EncodeEvent specifies this is an event msg and encode the event into body
+func (b *MsgBuilder) EncodeEvent(addr, channelID uint8, val proto.Message) *MsgBuilder {
+	b.msg.Head.Addrs = []uint8{addr}
+	b.msg.Head.Flag |= EventMask
+	b.EncodeBody(channelID, val)
+	return b
 }
 
 // Build finalizes the message

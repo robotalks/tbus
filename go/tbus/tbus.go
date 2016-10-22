@@ -70,7 +70,8 @@ type DeviceLogic interface {
 
 // Master is the bus master
 type Master interface {
-	Invoke(method uint8, params proto.Message, addrs []uint8) Invocation
+	Invoke(method uint8, params proto.Message, addrs RouteAddr) Invocation
+	Subscribe(channel uint8, addrs RouteAddr, handler EventHandler) EventSubscription
 }
 
 // Invocation represents the result of method invocation
@@ -80,4 +81,21 @@ type Invocation interface {
 	Timeout(time.Duration) Invocation
 	Result(proto.Message) error
 	Ignore()
+}
+
+// EventSubscription is the subscription to an event channel
+type EventSubscription interface {
+	io.Closer
+}
+
+// Event is an received event
+type Event interface {
+	Channel() uint8
+	Address() RouteAddr
+	Decode(proto.Message) error
+}
+
+// EventHandler handles subscribed events
+type EventHandler interface {
+	HandleEvent(Event, EventSubscription)
 }

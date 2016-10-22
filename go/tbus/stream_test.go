@@ -246,3 +246,50 @@ func TestStreamDevice(t *testing.T) {
 		})
 	})
 }
+
+type testButton struct {
+	LogicBase
+	pressed bool
+}
+
+func (b *testButton) GetState() (*ButtonState, error) {
+	return &ButtonState{Pressed: b.pressed}, nil
+}
+
+func (b *testButton) simulatePressed(pressed bool) {
+	b.pressed = pressed
+	b.EmitEvent(ChnButtonStateID, &ButtonState{Pressed: b.pressed})
+}
+
+func TestStreamEvents(t *testing.T) {
+	Convey("StreamDevice", t, func() {
+		bus := NewLocalBus()
+		btnLogic := &testButton{}
+		btn := NewButtonDev(btnLogic)
+		btn.SetDeviceID(3).Info.AddLabel("name", "button")
+		bus.Plug(btn)
+
+		testRemote(NewBusDev(bus), func(master *LocalMaster) {
+			busctl := NewBusCtl(master)
+			enum, err := busctl.Enumerate().Wait()
+			So(err, ShouldBeNil)
+			So(enum, ShouldNotBeNil)
+			devs := enum.Devices
+			So(devs, ShouldHaveLength, 1)
+			So(devs[0].ClassId, ShouldEqual, ButtonClassID)
+			So(devs[0].Labels, ShouldNotBeEmpty)
+			So(devs[0].Labels, ShouldContainKey, "name")
+			So(devs[0].Labels["name"], ShouldEqual, "button")
+
+			btnctl := NewButtonCtl(master)
+			btnctl.SetAddress(devs[0].DeviceAddress())
+			state, err := btnctl.GetState().Wait()
+			So(err, ShouldBeNil)
+			So(state.Pressed, ShouldBeFalse)
+			chn := btnctl.State()
+			go btnLogic.simulatePressed(true)
+			state = <-chn.C
+			So(state.Pressed, ShouldBeTrue)
+		})
+	})
+}

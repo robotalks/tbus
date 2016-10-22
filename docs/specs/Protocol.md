@@ -80,7 +80,8 @@ BodySize      | 1-4   | 7-bit encoded body size in bytes
 Bit | Field     | Content
 ----|-----------|--------
 4-7 | Format    | 0001 - rev1, ProtoBuf encoded
-0-3 | Reserved  | 0
+1-3 | Reserved  | 0
+0   | Event     | 1 indicate this is an event from device to master
 
 ### Body - Master to device
 

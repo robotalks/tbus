@@ -8,12 +8,17 @@ import (
 type Controller struct {
 	LogicBase
 	Master  Master
-	Address []uint8
+	Address RouteAddr
 }
 
 // Invoke invokes a method on a device
 func (c *Controller) Invoke(methodIndex uint8, params proto.Message) Invocation {
 	return c.Master.Invoke(methodIndex, params, c.Address)
+}
+
+// Subscribe subscribes an event channel
+func (c *Controller) Subscribe(channel uint8, handler EventHandler) EventSubscription {
+	return c.Master.Subscribe(channel, c.Address, handler)
 }
 
 // MethodInvocation provides partial Invocation implementations for

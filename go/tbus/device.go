@@ -60,18 +60,29 @@ func (l *LogicBase) SetDevice(dev Device) {
 	l.Device = dev
 }
 
+// EmitEvent emits event to specified channel
+func (l *LogicBase) EmitEvent(channelID uint8, event proto.Message) error {
+	return BuildMsg().
+		EncodeEvent(
+			uint8(l.Device.DeviceInfo().Address),
+			channelID,
+			event).
+		Build().
+		Dispatch(l.Device.BusPort())
+}
+
 // DeviceAddress is a helper to construct device address
-func DeviceAddress(devs ...Device) []uint8 {
+func DeviceAddress(devs ...Device) RouteAddr {
 	addrs := make([]uint8, len(devs))
 	for n, dev := range devs {
 		addrs[n] = uint8(dev.DeviceInfo().Address)
 	}
-	return addrs
+	return RouteAddr(addrs)
 }
 
 // DeviceAddress returns a full device address
-func (d *DeviceInfo) DeviceAddress() []uint8 {
-	return []uint8{uint8(d.Address)}
+func (d *DeviceInfo) DeviceAddress() RouteAddr {
+	return RouteWith(uint8(d.Address))
 }
 
 // AddLabel adds a single label to device info

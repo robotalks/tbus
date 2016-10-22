@@ -22,15 +22,15 @@ type LEDPowerState struct {
 func (m *LEDPowerState) Reset()                    { *m = LEDPowerState{} }
 func (m *LEDPowerState) String() string            { return proto.CompactTextString(m) }
 func (*LEDPowerState) ProtoMessage()               {}
-func (*LEDPowerState) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (*LEDPowerState) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
 
 func init() {
 	proto.RegisterType((*LEDPowerState)(nil), "tbus.LEDPowerState")
 }
 
-func init() { proto.RegisterFile("tbus/led.proto", fileDescriptor2) }
+func init() { proto.RegisterFile("tbus/led.proto", fileDescriptor3) }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor3 = []byte{
 	// 169 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x2b, 0x49, 0x2a, 0x2d,
 	0xd6, 0xcf, 0x49, 0x4d, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x01, 0xf1, 0xa5, 0xa4,
@@ -110,7 +110,7 @@ func NewLEDCtl(master Master) *LEDCtl {
 }
 
 // SetAddress sets routing address for target device
-func (c *LEDCtl) SetAddress(addrs []uint8) *LEDCtl {
+func (c *LEDCtl) SetAddress(addrs RouteAddr) *LEDCtl {
     c.Address = addrs
     return c
 }

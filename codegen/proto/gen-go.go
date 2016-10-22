@@ -2,10 +2,10 @@ package proto
 
 import (
 	"fmt"
-	"html/template"
 	"io"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	gen "github.com/golang/protobuf/protoc-gen-go/generator"
 )
@@ -141,7 +141,7 @@ func New{{.ClassName}}Ctl(master {{$tbus}}Master) *{{.ClassName}}Ctl {
 }
 
 // SetAddress sets routing address for target device
-func (c *{{.ClassName}}Ctl) SetAddress(addrs []uint8) *{{.ClassName}}Ctl {
+func (c *{{.ClassName}}Ctl) SetAddress(addrs {{$tbus}}RouteAddr) *{{.ClassName}}Ctl {
     c.Address = addrs
     return c
 }
@@ -176,6 +176,39 @@ func (c *{{$class.ClassName}}Ctl) {{.Symbol}}({{with .ParamType}}params *{{.}}{{
 	return invoke
 }
 
+{{end -}}{{range .Events -}}
+
+// Chn{{$class.ClassName}}{{.Symbol}}ID is the channel index
+const Chn{{$class.ClassName}}{{.Symbol}}ID uint8 = {{.Index}}
+
+// Chn{{$class.ClassName}}{{.Symbol}} is the subscribed event channel for {{$class.ClassName}}.{{.Symbol}}
+type Chn{{$class.ClassName}}{{.Symbol}} struct {
+	C chan *{{.EventType}}
+
+	subscription {{$tbus}}EventSubscription
+}
+
+// HandleEvent implements EventHandler
+func (c *Chn{{$class.ClassName}}{{.Symbol}}) HandleEvent(evt {{$tbus}}Event, _ {{$tbus}}EventSubscription) {
+	val := &{{.EventType}}{}
+	if evt.Decode(val) == nil {
+		c.C <- val
+	}
+}
+
+// Close implement EventSubscription
+func (c *Chn{{$class.ClassName}}{{.Symbol}}) Close() error {
+	close(c.C)
+	return c.subscription.Close()
+}
+
+// {{.Symbol}} wraps class {{$class.ClassName}}
+func (c *{{$class.ClassName}}Ctl) {{.Symbol}}() *Chn{{$class.ClassName}}{{.Symbol}} {
+	chn := &Chn{{$class.ClassName}}{{.Symbol}}{C: make(chan *{{.EventType}})}
+	chn.subscription = c.Subscribe({{.Index}}, chn)
+	return chn
+}
+
 {{end -}}
 {{end -}}
 `
@@ -198,6 +231,7 @@ type goClass struct {
 	ClassID   string
 	Router    bool
 	Methods   []goMethod
+	Events    []goEvent
 }
 
 type goMethod struct {
@@ -206,6 +240,13 @@ type goMethod struct {
 	Symbol     string
 	ParamType  string
 	ReturnType string
+}
+
+type goEvent struct {
+	Index     uint32
+	Name      string
+	Symbol    string
+	EventType string
 }
 
 type goImport struct {
@@ -251,6 +292,15 @@ func (g *goGenerator) generate(f *DefFile, gf *GeneratedFile, w io.Writer) error
 			mtd.ParamType = g.fixTypeName(f.Package, mtd.ParamType)
 			mtd.ReturnType = g.fixTypeName(f.Package, mtd.ReturnType)
 			cls.Methods = append(cls.Methods, mtd)
+		}
+		for _, c := range dev.EventChns {
+			chn := goEvent{
+				Index:     c.Index,
+				Name:      c.Name,
+				Symbol:    gen.CamelCase(c.Name),
+				EventType: g.fixTypeName(f.Package, c.EventType),
+			}
+			cls.Events = append(cls.Events, chn)
 		}
 		ctx.Classes = append(ctx.Classes, cls)
 	}

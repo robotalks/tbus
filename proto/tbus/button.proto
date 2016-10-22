@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "tbus/common/options.proto";
+
+package tbus;
+
+message ButtonState {
+    bool pressed = 1;
+}
+
+service Button {
+    option (class_id) = 0x0401;
+    rpc GetState(google.protobuf.Empty) returns (ButtonState) { option (index) = 1; }
+    rpc State(google.protobuf.Empty) returns (stream ButtonState) { option (index) = 1; }
+}

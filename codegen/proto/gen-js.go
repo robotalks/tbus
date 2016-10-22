@@ -2,10 +2,10 @@ package proto
 
 import (
 	"fmt"
-	"html/template"
 	"io"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	gen "github.com/golang/protobuf/protoc-gen-go/generator"
 )

@@ -34,7 +34,7 @@ var MotorDriveState_Direction_value = map[string]int32{
 func (x MotorDriveState_Direction) String() string {
 	return proto.EnumName(MotorDriveState_Direction_name, int32(x))
 }
-func (MotorDriveState_Direction) EnumDescriptor() ([]byte, []int) { return fileDescriptor3, []int{0, 0} }
+func (MotorDriveState_Direction) EnumDescriptor() ([]byte, []int) { return fileDescriptor4, []int{0, 0} }
 
 type MotorDriveState struct {
 	Direction MotorDriveState_Direction `protobuf:"varint,1,opt,name=direction,enum=tbus.MotorDriveState_Direction" json:"direction,omitempty"`
@@ -44,7 +44,7 @@ type MotorDriveState struct {
 func (m *MotorDriveState) Reset()                    { *m = MotorDriveState{} }
 func (m *MotorDriveState) String() string            { return proto.CompactTextString(m) }
 func (*MotorDriveState) ProtoMessage()               {}
-func (*MotorDriveState) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
+func (*MotorDriveState) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
 
 type MotorBrakeState struct {
 	On bool `protobuf:"varint,1,opt,name=on" json:"on,omitempty"`
@@ -53,7 +53,7 @@ type MotorBrakeState struct {
 func (m *MotorBrakeState) Reset()                    { *m = MotorBrakeState{} }
 func (m *MotorBrakeState) String() string            { return proto.CompactTextString(m) }
 func (*MotorBrakeState) ProtoMessage()               {}
-func (*MotorBrakeState) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{1} }
+func (*MotorBrakeState) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{1} }
 
 func init() {
 	proto.RegisterType((*MotorDriveState)(nil), "tbus.MotorDriveState")
@@ -61,9 +61,9 @@ func init() {
 	proto.RegisterEnum("tbus.MotorDriveState_Direction", MotorDriveState_Direction_name, MotorDriveState_Direction_value)
 }
 
-func init() { proto.RegisterFile("tbus/motor.proto", fileDescriptor3) }
+func init() { proto.RegisterFile("tbus/motor.proto", fileDescriptor4) }
 
-var fileDescriptor3 = []byte{
+var fileDescriptor4 = []byte{
 	// 273 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x7c, 0x90, 0xc1, 0x4e, 0x83, 0x40,
 	0x10, 0x86, 0x5d, 0x0a, 0x6a, 0x27, 0xb1, 0x92, 0x8d, 0x1a, 0xc4, 0x18, 0x91, 0x53, 0x4f, 0x4b,
@@ -160,7 +160,7 @@ func NewMotorCtl(master Master) *MotorCtl {
 }
 
 // SetAddress sets routing address for target device
-func (c *MotorCtl) SetAddress(addrs []uint8) *MotorCtl {
+func (c *MotorCtl) SetAddress(addrs RouteAddr) *MotorCtl {
     c.Address = addrs
     return c
 }

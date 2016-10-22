@@ -22,15 +22,15 @@ type ServoPosition struct {
 func (m *ServoPosition) Reset()                    { *m = ServoPosition{} }
 func (m *ServoPosition) String() string            { return proto.CompactTextString(m) }
 func (*ServoPosition) ProtoMessage()               {}
-func (*ServoPosition) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
+func (*ServoPosition) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{0} }
 
 func init() {
 	proto.RegisterType((*ServoPosition)(nil), "tbus.ServoPosition")
 }
 
-func init() { proto.RegisterFile("tbus/servo.proto", fileDescriptor4) }
+func init() { proto.RegisterFile("tbus/servo.proto", fileDescriptor5) }
 
-var fileDescriptor4 = []byte{
+var fileDescriptor5 = []byte{
 	// 184 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0x12, 0x28, 0x49, 0x2a, 0x2d,
 	0xd6, 0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0xd7, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x01, 0x89,
@@ -114,7 +114,7 @@ func NewServoCtl(master Master) *ServoCtl {
 }
 
 // SetAddress sets routing address for target device
-func (c *ServoCtl) SetAddress(addrs []uint8) *ServoCtl {
+func (c *ServoCtl) SetAddress(addrs RouteAddr) *ServoCtl {
     c.Address = addrs
     return c
 }

@@ -7,6 +7,7 @@ Package tbus is a generated protocol buffer package.
 
 It is generated from these files:
 	tbus/bus.proto
+	tbus/button.proto
 	tbus/error.proto
 	tbus/led.proto
 	tbus/motor.proto
@@ -15,6 +16,7 @@ It is generated from these files:
 It has these top-level messages:
 	DeviceInfo
 	BusEnumeration
+	ButtonState
 	Error
 	LEDPowerState
 	MotorDriveState
@@ -167,7 +169,7 @@ func NewBusCtl(master Master) *BusCtl {
 }
 
 // SetAddress sets routing address for target device
-func (c *BusCtl) SetAddress(addrs []uint8) *BusCtl {
+func (c *BusCtl) SetAddress(addrs RouteAddr) *BusCtl {
     c.Address = addrs
     return c
 }

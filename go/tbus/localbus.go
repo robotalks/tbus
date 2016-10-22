@@ -98,6 +98,9 @@ func (b *LocalBus) sendToHost(msg *Msg) error {
 	if b.Device == nil {
 		return ErrNoAssocDevice
 	}
+	if msg.Head.NeedRoute() && b.Device.DeviceInfo().Address != 0 {
+		msg.Head.Addrs = msg.Head.Addrs.Prefix(uint8(b.Device.DeviceInfo().Address))
+	}
 	return b.Device.BusPort().DispatchMsg(msg)
 }
 

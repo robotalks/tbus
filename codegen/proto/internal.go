@@ -18,9 +18,10 @@ var (
 
 // Device represents the definition of a device
 type Device struct {
-	Name    string
-	ClassID uint32
-	Methods []*Method
+	Name      string
+	ClassID   uint32
+	Methods   []*Method
+	EventChns []*EventChannel
 }
 
 // MethodByIndex finds method by method index
@@ -43,12 +44,39 @@ func (d *Device) AddMethod(method *Method) error {
 	return nil
 }
 
+// EventChnByIndex finds event channel by index
+func (d *Device) EventChnByIndex(index uint32) *EventChannel {
+	for _, c := range d.EventChns {
+		if c.Index == index {
+			return c
+		}
+	}
+	return nil
+}
+
+// AddEventChannel adds an event channel with unique index
+func (d *Device) AddEventChannel(chn *EventChannel) error {
+	if c := d.EventChnByIndex(chn.Index); c != nil {
+		return fmt.Errorf("event channel %s and %s has the same index %d",
+			c.Name, chn.Name, c.Index)
+	}
+	d.EventChns = append(d.EventChns, chn)
+	return nil
+}
+
 // Method defines a method supported by a device
 type Method struct {
 	Index        uint32
 	Name         string
 	RequestType  string
 	ResponseType string
+}
+
+// EventChannel defines an event channel broadcasting events
+type EventChannel struct {
+	Index     uint32
+	Name      string
+	EventType string
 }
 
 // DefFile is a file containing definitions
