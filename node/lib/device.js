@@ -58,16 +58,23 @@ var Device = Class({
         } else {
             var methodIndex = msg.body.flag;
             var methodParams = msg.body.data;
-            var method = this._methods[methodIndex];
-            if (method == null) {
-                this.reply(msg.head.msgId, null,
-                    new Error('unknown method ' + methodIndex));
-            } else {
-                setImmediate(function () {
-                    method.func(methodParams, function (err, reply) {
-                        self.reply(msg.head.msgId, reply, err);
-                    });
+
+            if (methodIndex == 0) {   // for device info
+                setImmediate(function() {
+                    self.reply(msg.head.msgId, new DeviceInfo().fromDevice(self));
                 });
+            } else {
+                var method = this._methods[methodIndex];
+                if (method == null) {
+                    this.reply(msg.head.msgId, null,
+                        new Error('unknown method ' + methodIndex));
+                } else {
+                    setImmediate(function () {
+                        method.func(methodParams, function (err, reply) {
+                            self.reply(msg.head.msgId, reply, err);
+                        });
+                    });
+                }
             }
         }
         return this;

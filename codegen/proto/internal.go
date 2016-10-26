@@ -36,6 +36,9 @@ func (d *Device) MethodByIndex(index uint32) *Method {
 
 // AddMethod adds a method with unique index
 func (d *Device) AddMethod(method *Method) error {
+	if method.Index == 0 {
+		return fmt.Errorf("method %s has invalid index 0", method.Name)
+	}
 	if m := d.MethodByIndex(method.Index); m != nil {
 		return fmt.Errorf("method %s and %s has the same index %d",
 			m.Name, method.Name, m.Index)
@@ -56,6 +59,9 @@ func (d *Device) EventChnByIndex(index uint32) *EventChannel {
 
 // AddEventChannel adds an event channel with unique index
 func (d *Device) AddEventChannel(chn *EventChannel) error {
+	if chn.Index == 0 {
+		return fmt.Errorf("event channel %s has invalid index 0", chn.Name)
+	}
 	if c := d.EventChnByIndex(chn.Index); c != nil {
 		return fmt.Errorf("event channel %s and %s has the same index %d",
 			c.Name, chn.Name, c.Index)

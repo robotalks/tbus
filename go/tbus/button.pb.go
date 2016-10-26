@@ -80,6 +80,9 @@ func (d *ButtonDev) DispatchMsg(msg *Msg) (err error) {
     }
     var reply proto.Message
     switch msg.Body.Flag {
+    case 0:
+        devInfo := d.DeviceInfo()
+        reply = &devInfo
     case 1: // GetState
         reply, err = d.Logic.GetState()
     default:

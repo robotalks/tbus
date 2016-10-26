@@ -104,6 +104,9 @@ func (d *{{.ClassName}}Dev) DispatchMsg(msg *{{$tbus}}Msg) (err error) {
     }
     var reply proto.Message
     switch msg.Body.Flag {
+    case 0:
+        devInfo := d.DeviceInfo()
+        reply = &devInfo
 {{- range .Methods}}
     case {{.Index}}: // {{.Name}}
         {{- if .ParamType}}

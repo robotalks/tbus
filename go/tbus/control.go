@@ -21,6 +21,12 @@ func (c *Controller) Subscribe(channel uint8, handler EventHandler) EventSubscri
 	return c.Master.Subscribe(channel, c.Address, handler)
 }
 
+// DeviceInfo retrieves device information
+func (c *Controller) DeviceInfo() (info DeviceInfo, err error) {
+	err = c.Invoke(0, nil).Result(&info)
+	return
+}
+
 // MethodInvocation provides partial Invocation implementations for
 // generated controller code
 type MethodInvocation struct {
